@@ -197,6 +197,12 @@ public static class App
 	public static int MainThreadID { get; private set; }
 
 	/// <summary>
+	/// Locks Render rate to Update rate. Set this to false to run the Render loop as fast as possible,
+	/// in this case, implement interpolation of drawables' game state for best results.
+	/// </summary>
+	public static bool RenderRateLimited = true;
+
+	/// <summary>
 	/// Registers a Module that will be run within the Application once it has started.
 	/// If the Application is already running, the Module's Startup method will immediately be invoked.
 	/// </summary>
@@ -330,15 +336,18 @@ public static class App
 			accumulator += deltaTime;
 
 			// Do not let us run too fast
-			while (accumulator < Time.FixedStepTarget)
+			if (RenderRateLimited)
 			{
-				int milliseconds = (int)(Time.FixedStepTarget - accumulator).TotalMilliseconds;
-				Thread.Sleep(milliseconds);
+				while (accumulator < Time.FixedStepTarget)
+				{
+					int milliseconds = (int)(Time.FixedStepTarget - accumulator).TotalMilliseconds;
+					Thread.Sleep(milliseconds);
 
-				currentTime = timer.Elapsed;
-				deltaTime = currentTime - lastTime;
-				lastTime = currentTime;
-				accumulator += deltaTime;
+					currentTime = timer.Elapsed;
+					deltaTime = currentTime - lastTime;
+					lastTime = currentTime;
+					accumulator += deltaTime;
+				}
 			}
 
 			// Do not allow any update to take longer than our maximum.
@@ -361,6 +370,8 @@ public static class App
 		{
 			Update(deltaTime);
 		}
+
+		Time.AdvanceRender(deltaTime);
 
 		for (int i = 0; i < modules.Count; i ++)
 			modules[i].Render();

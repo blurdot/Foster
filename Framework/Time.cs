@@ -9,10 +9,20 @@ public static class Time
 	public static float Delta;
 
 	/// <summary>
+	/// Time in Seconds since our last Render.
+	/// </summary>
+	public static float RenderDelta;
+
+	/// <summary>
 	/// An Accumulation of the Delta Time, incremented each Update.
 	/// In Fixed Timestep this is incremented by a constant value.
 	/// </summary>
 	public static TimeSpan Duration;
+
+	/// <summary>
+	/// An Accumulation of the Delta Time of all Renders, incremented each Render.
+	/// </summary>
+	public static TimeSpan RenderDuration;
 
 	/// <summary>
 	/// Requests the current time since the Application was started.
@@ -49,7 +59,16 @@ public static class Time
 		Delta = (float)delta.TotalSeconds;
 		Duration += delta;
 	}
-	
+
+	/// <summary>
+	/// Advances the Time.RenderDuration by the given delta, and assigns Time.RenderDelta.
+	/// </summary>
+	public static void AdvanceRender(TimeSpan delta)
+	{
+		RenderDelta = (float)delta.TotalSeconds;
+		RenderDuration += delta;
+	}
+
 	/// <summary>
 	/// Returns true when the elapsed time passes a given interval based on the delta time
 	/// </summary>
