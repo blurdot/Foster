@@ -412,6 +412,7 @@ typedef struct FosterMesh FosterMesh;
 
 // Spine
 typedef struct SpineAtlas SpineAtlas;
+typedef struct SpineSkeletonJson SpineSkeletonJson;
 
 typedef struct FosterDesc
 {
@@ -624,7 +625,12 @@ FOSTER_API void FosterDraw(FosterDrawCommand* command);
 FOSTER_API void FosterClear(FosterClearCommand* clear);
 
 // Spine
-FOSTER_API SpineAtlas* SpineAtlasCreateFromFile(const char* path, void* rendererObject);
+FOSTER_API SpineAtlas* Spine_Atlas_CreateFromFile(const char* path);
+
+FOSTER_API SpineSkeletonJson* Spine_SkeletonJson_Create(SpineAtlas* atlas);
+
+FOSTER_API SpineSkeletonJson* Spine_SkeletonJson_Update(SpineSkeletonJson* skeletonJson, SpineSkeletonJson data);
+
 #if __cplusplus
 }
 #endif

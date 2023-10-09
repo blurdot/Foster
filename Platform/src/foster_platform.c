@@ -929,7 +929,23 @@ FosterAxis FosterGetAxisFromSDL(int axis)
 }
 
 // Spine
-SpineAtlas* SpineAtlasCreateFromFile(const char* path, void* rendererObject)
-{
-	return spAtlas_createFromFile(path, rendererObject);
+SpineAtlas* Spine_Atlas_CreateFromFile(const char* path)
+{	
+	return spAtlas_createFromFile(path, &fstate.device);
 }
+
+SpineSkeletonJson* Spine_SkeletonJson_Create(SpineAtlas* atlas)
+{
+	return spSkeletonJson_create(atlas);
+}
+
+SpineSkeletonJson* Spine_SkeletonJson_Update(SpineSkeletonJson* skeletonJson, spSkeletonJson data)
+{
+	spSkeletonJson* s = skeletonJson;
+	s->attachmentLoader = data.attachmentLoader;
+	s->scale = data.scale;
+
+	return s;
+}
+/*
+*/

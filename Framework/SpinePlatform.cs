@@ -9,5 +9,11 @@ internal static class SpinePlatform
 
 	// Spine
 	[DllImport(DLL)]
-	public static extern IntPtr SpineAtlasCreateFromFile(string path, IntPtr renderer);
+	public static extern IntPtr Spine_Atlas_CreateFromFile(string path);
+
+	[DllImport(DLL)]
+	public static extern IntPtr Spine_SkeletonJson_Create(IntPtr atlas);
+
+	[DllImport(DLL)]
+	public static extern IntPtr Spine_SkeletonJson_Update(IntPtr skeletonJson, Spine.SkeletonJson data);
 }
