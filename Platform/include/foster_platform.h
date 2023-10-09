@@ -413,6 +413,12 @@ typedef struct FosterMesh FosterMesh;
 // Spine
 typedef struct SpineAtlas SpineAtlas;
 typedef struct SpineSkeletonJson SpineSkeletonJson;
+typedef struct SpineSkeletonData SpineSkeletonData;
+typedef struct SpineAnimationState SpineAnimationState;
+typedef struct SpineAnimationStateData SpineAnimationStateData;
+typedef struct SpineSkeletonDrawable SpineSkeletonDrawable;
+typedef struct SpineSkeleton SpineSkeleton;
+typedef struct SpineTrackEntry SpineTrackEntry;
 
 typedef struct FosterDesc
 {
@@ -629,7 +635,34 @@ FOSTER_API SpineAtlas* Spine_Atlas_CreateFromFile(const char* path);
 
 FOSTER_API SpineSkeletonJson* Spine_SkeletonJson_Create(SpineAtlas* atlas);
 
-FOSTER_API SpineSkeletonJson* Spine_SkeletonJson_Update(SpineSkeletonJson* skeletonJson, SpineSkeletonJson data);
+FOSTER_API SpineSkeletonJson* Spine_SkeletonJson_Set(SpineSkeletonJson* skeletonJson, SpineSkeletonJson data);
+
+FOSTER_API SpineAnimationStateData* Spine_AnimationStateData_Create(SpineSkeletonJson* skeletonJson);
+
+FOSTER_API SpineSkeletonData* Spine_SkeletonJson_ReadSkeletonDataFile(SpineSkeletonJson* skeletonJson, const char* path);
+
+FOSTER_API SpineAnimationStateData* Spine_AnimationStateData_Set(SpineAnimationStateData* animationStateData, SpineAnimationStateData data);
+
+FOSTER_API SpineSkeletonDrawable* Spine_SkeletonDrawable_Create(SpineSkeletonData* skeletonData, SpineAnimationStateData* animationStateData);
+
+FOSTER_API SpineSkeletonDrawable* Spine_SkeletonDrawable_Set(SpineSkeletonDrawable* skeletonDrawable, SpineSkeletonDrawable data);
+
+FOSTER_API SpineSkeleton* Spine_Skeleton_Set(SpineSkeleton* skeleton, SpineSkeleton data);
+
+FOSTER_API void Spine_Skeleton_SetToSetupPose(SpineSkeleton* skeleton);
+
+FOSTER_API void Spine_SkeletonDrawable_Draw(SpineSkeletonDrawable* skeletonDrawable);
+
+FOSTER_API void Spine_SkeletonDrawable_Update(SpineSkeletonDrawable* skeletonDrawable, float delta);
+
+FOSTER_API SpineTrackEntry* Spine_AnimationState_SetAnimationByName(SpineAnimationState* animationState, int trackIndex, const char* animationName, int /*bool*/ loop);
+
+FOSTER_API SpineTrackEntry* Spine_AnimationState_AddAnimationByName(SpineAnimationState* animationState, int trackIndex, const char* animationName, int /*bool*/ loop, float delay);
+
+// TODO: Hopefully we can remove these when we figure out a way to integrate with Foster DrawCommands
+FOSTER_API int Spine_SDL_SetRenderDrawColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
+FOSTER_API int Spine_SDL_RenderClear();
+FOSTER_API void Spine_SDL_RenderPresent();
 
 #if __cplusplus
 }

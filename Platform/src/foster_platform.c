@@ -939,13 +939,87 @@ SpineSkeletonJson* Spine_SkeletonJson_Create(SpineAtlas* atlas)
 	return spSkeletonJson_create(atlas);
 }
 
-SpineSkeletonJson* Spine_SkeletonJson_Update(SpineSkeletonJson* skeletonJson, spSkeletonJson data)
+SpineSkeletonJson* Spine_SkeletonJson_Set(SpineSkeletonJson* skeletonJson, spSkeletonJson data)
 {
-	spSkeletonJson* s = skeletonJson;
-	s->attachmentLoader = data.attachmentLoader;
-	s->scale = data.scale;
-
-	return s;
+	memcpy(skeletonJson, &data, sizeof(spSkeletonJson));
+	return skeletonJson;
 }
-/*
+
+SpineSkeletonData* Spine_SkeletonJson_ReadSkeletonDataFile(SpineSkeletonJson* skeletonJson, const char* path)
+{
+	return spSkeletonJson_readSkeletonDataFile(skeletonJson, path);
+}
+
+SpineAnimationStateData* Spine_AnimationStateData_Create(SpineSkeletonData* skeletonData)
+{
+	return spAnimationStateData_create(skeletonData);
+}
+
+SpineAnimationStateData* Spine_AnimationStateData_Set(SpineAnimationStateData* animationStateData, spAnimationStateData data)
+{
+	memcpy(animationStateData, &data, sizeof(spAnimationStateData));
+	return animationStateData;
+}
+
+SpineSkeletonDrawable* Spine_SkeletonDrawable_Create(SpineSkeletonData* skeletonData, SpineAnimationStateData* animationStateData)
+{
+	return spSkeletonDrawable_create(skeletonData, animationStateData);
+}
+
+SpineSkeletonDrawable* Spine_SkeletonDrawable_Set(SpineSkeletonDrawable* skeletonDrawable, spSkeletonDrawable data)
+{
+	memcpy(skeletonDrawable, &data, sizeof(spSkeletonDrawable));
+	return skeletonDrawable;
+}
+
+SpineSkeleton* Spine_Skeleton_Set(SpineSkeleton* skeleton, spSkeleton data)
+{
+	memcpy(skeleton, &data, sizeof(spSkeleton));
+	return skeleton;
+}
+
+void Spine_Skeleton_SetToSetupPose(SpineSkeleton* skeleton)
+{
+	spSkeleton_setToSetupPose(skeleton);
+}
+
+void Spine_SkeletonDrawable_Draw(SpineSkeletonDrawable* skeletonDrawable)
+{
+	spSkeletonDrawable_draw(skeletonDrawable, &fstate.device);
+}
+
+void Spine_SkeletonDrawable_Update(SpineSkeletonDrawable* skeletonDrawable, float delta)
+{
+	spSkeletonDrawable_update(skeletonDrawable, delta);
+}
+
+SpineTrackEntry* Spine_AnimationState_SetAnimationByName(SpineAnimationState* animationState, int trackIndex, const char* animationName, int /*bool*/ loop)
+{
+	return spAnimationState_setAnimationByName(animationState, trackIndex, animationName, loop);
+}
+
+SpineTrackEntry* Spine_AnimationState_AddAnimationByName(SpineAnimationState* animationState, int trackIndex, const char* animationName, int /*bool*/ loop, float delay)
+{
+	return spAnimationState_addAnimationByName(animationState, trackIndex, animationName, loop, delay);
+}
+
+int Spine_SDL_SetRenderDrawColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+	return SDL_SetRenderDrawColor(&fstate.device, r, g, b, a);
+}
+int Spine_SDL_RenderClear()
+{
+	return SDL_RenderClear(&fstate.device);
+}
+void Spine_SDL_RenderPresent()
+{
+	SDL_RenderPresent(&fstate.device);
+}
+
+/* Future optimization?
+void* Spine_Set(void* ptr, spSkeleton data)
+{
+	memcpy(ptr, &data, sizeof(data));
+	return ptr;
+}
 */
