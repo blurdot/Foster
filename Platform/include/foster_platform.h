@@ -410,6 +410,9 @@ typedef struct FosterTarget FosterTarget;
 typedef struct FosterShader FosterShader; 
 typedef struct FosterMesh FosterMesh; 
 
+// Spine
+typedef struct SpineAtlas SpineAtlas;
+
 typedef struct FosterDesc
 {
 	const char* windowTitle;
@@ -620,6 +623,8 @@ FOSTER_API void FosterDraw(FosterDrawCommand* command);
 
 FOSTER_API void FosterClear(FosterClearCommand* clear);
 
+// Spine
+FOSTER_API SpineAtlas* SpineAtlasCreateFromFile(const char* path, void* rendererObject);
 #if __cplusplus
 }
 #endif

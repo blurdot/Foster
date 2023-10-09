@@ -2,6 +2,8 @@
 #include "foster_renderer.h"
 #include "foster_internal.h"
 #include <SDL.h>
+// Spine
+#include "spine-sdl-c.h"
 
 #define STBTT_STATIC
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -924,4 +926,10 @@ FosterAxis FosterGetAxisFromSDL(int axis)
 	}
 
 	return FOSTER_AXIS_NONE;
+}
+
+// Spine
+SpineAtlas* SpineAtlasCreateFromFile(const char* path, void* rendererObject)
+{
+	return spAtlas_createFromFile(path, rendererObject);
 }

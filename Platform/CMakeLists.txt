@@ -23,6 +23,47 @@ add_library(FosterPlatform SHARED
 	src/foster_renderer.c
 	src/foster_renderer_d3d11.c
 	src/foster_renderer_opengl.c
+	src/spine-sdl-c.c
+	src/spine/Animation.c
+	src/spine/AnimationState.c
+	src/spine/AnimationStateData.c
+	src/spine/Array.c
+	src/spine/Atlas.c
+	src/spine/AtlasAttachmentLoader.c
+	src/spine/Attachment.c
+	src/spine/AttachmentLoader.c
+	src/spine/Bone.c
+	src/spine/BoneData.c
+	src/spine/BoundingBoxAttachment.c
+	src/spine/ClippingAttachment.c
+	src/spine/Color.c
+	src/spine/Debug.c
+	src/spine/Event.c
+	src/spine/EventData.c
+	src/spine/IkConstraint.c
+	src/spine/IkConstraintData.c
+	src/spine/Json.c
+	src/spine/MeshAttachment.c
+	src/spine/PathAttachment.c
+	src/spine/PathConstraint.c
+	src/spine/PathConstraintData.c
+	src/spine/PointAttachment.c
+	src/spine/RegionAttachment.c
+	src/spine/Sequence.c
+	src/spine/Skeleton.c
+	src/spine/SkeletonBinary.c
+	src/spine/SkeletonBounds.c
+	src/spine/SkeletonClipping.c
+	src/spine/SkeletonData.c
+	src/spine/SkeletonJson.c
+	src/spine/Skin.c
+	src/spine/Slot.c
+	src/spine/SlotData.c
+	src/spine/TransformConstraint.c
+	src/spine/TransformConstraintData.c
+	src/spine/Triangulator.c
+	src/spine/VertexAttachment.c
+	src/spine/extension.c
 )
 
 target_include_directories(FosterPlatform

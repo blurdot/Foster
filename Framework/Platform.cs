@@ -265,4 +265,8 @@ internal static class Platform
 	public static extern void FosterDraw(ref FosterDrawCommand command);
 	[DllImport(DLL)]
 	public static extern void FosterClear(ref FosterClearCommand command);
+
+	// Spine
+	[DllImport(DLL)]
+	public static extern IntPtr SpineAtlasCreateFromFile(string path, IntPtr renderer);
 }
