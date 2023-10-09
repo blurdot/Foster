@@ -4,3 +4,8 @@ bin
 obj
 build
 artifacts
+Platform/libs/x64/FosterPlatform.dll
+Platform/libs/x64/FosterPlatform.exp
+Platform/libs/x64/FosterPlatform.ilk
+Platform/libs/x64/FosterPlatform.lib
+Platform/libs/x64/FosterPlatform.pdb
