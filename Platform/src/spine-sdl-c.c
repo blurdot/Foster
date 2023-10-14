@@ -27,6 +27,7 @@
  * SPINE RUNTIMES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *****************************************************************************/
 
+#include "foster_renderer.h"
 #include "spine-sdl-c.h"
 #include <spine/spine.h>
 #include <spine/extension.h>
@@ -174,6 +175,13 @@ void spSkeletonDrawable_draw(spSkeletonDrawable *self, struct SDL_Renderer *rend
 				SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 				break;
 		}
+
+		FosterMesh* mesh;
+		FosterMeshSetVertexData(mesh, self->sdlVertices, self->sdlVertices->size, 0);
+		//mesh
+		//FosterDrawCommand command;
+		//command.mesh = 
+		//FosterDraw();
 
 		SDL_RenderGeometry(renderer, texture, self->sdlVertices->items, self->sdlVertices->size, self->sdlIndices->items,
 						   indicesCount);
