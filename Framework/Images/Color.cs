@@ -330,4 +330,40 @@ public struct Color : IEquatable<Color>
 	public static implicit operator Color(Vector3 vec) => new Color(vec.X, vec.Y, vec.Z, 1.0f);
 	public static implicit operator Vector4(Color col) => col.ToVector4();
 	public static implicit operator Vector3(Color col) => col.ToVector3();
+
+	public struct ColorF
+	{
+		public float R;
+		public float G;
+		public float B;
+		public float A;
+
+		public ColorF(float r, float g, float b, float a)
+		{
+			this.R = r;
+			this.G = g;
+			this.B = b;
+			this.A = a;
+		}
+
+		public static implicit operator ColorF(Vector4 v)
+		{
+			ColorF colorF = new ColorF();
+			colorF.R = v.X;
+			colorF.G = v.Y;
+			colorF.B = v.Z;
+			colorF.A = v.W;
+			return colorF;
+		}
+
+		public static implicit operator Vector4(ColorF c)
+		{
+			Vector4 v = new ColorF();
+			v.X = c.R;
+			v.Y = c.G;
+			v.Z = c.B;
+			v.W = c.A;
+			return v;
+		}
+	}
 }
