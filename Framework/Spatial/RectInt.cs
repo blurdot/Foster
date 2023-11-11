@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace Foster.Framework;
@@ -7,6 +8,7 @@ namespace Foster.Framework;
 /// <summary>
 /// A 2D Integer Rectangle
 /// </summary>
+[StructLayout(LayoutKind.Sequential)]
 public struct RectInt : IEquatable<RectInt>
 {
 	public int X;
@@ -239,6 +241,15 @@ public struct RectInt : IEquatable<RectInt>
 		=> new(X - byX, Y - byY, Width + byX * 2, Height + byY * 2);
 
 	public readonly RectInt Inflate(in Point2 by)
+		=> Inflate(by.X, by.Y);
+
+	public readonly Rect Inflate(float by)
+		=> new(X - by, Y - by, Width + by * 2, Height + by * 2);
+
+	public readonly Rect Inflate(float byX, float byY)
+		=> new(X - byX, Y - byY, Width + byX * 2, Height + byY * 2);
+
+	public readonly Rect Inflate(in Vector2 by)
 		=> Inflate(by.X, by.Y);
 
 	public readonly RectInt MultiplyX(int scale)

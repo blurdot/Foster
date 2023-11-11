@@ -221,6 +221,16 @@ public static class App
 	}
 
 	/// <summary>
+	/// Runs the Application with the given Module automatically registered.
+	/// Functionally the same as calling Register<T>() followed by Run()
+	/// </summary>
+	public static void Run<T>(string applicationName, int width, int height, bool fullscreen = false) where T : Module, new()
+	{
+		Register<T>();
+		Run(applicationName, width, height, fullscreen);
+	}
+
+	/// <summary>
 	/// Runs the Application
 	/// </summary>
 	public static void Run(string applicationName, int width, int height, bool fullscreen = false)
@@ -274,6 +284,13 @@ public static class App
 		UserPath = Platform.ParseUTF8(Platform.FosterGetUserPath());
 		Graphics.Initialize();
 
+		// Clear Time
+		Time.Frame = 0;
+		Time.Duration = new();
+		lastTime = TimeSpan.Zero;
+		accumulator = TimeSpan.Zero;
+		timer.Restart();
+
 		// register & startup all modules in order
 		// this is in a loop in case a module registers more modules
 		// from within its own constructor/startup call.
@@ -291,17 +308,17 @@ public static class App
 				modules[i].Startup();
 		}
 
-		timer.Restart();
-		started = true;
-
 		// begin normal game loop
+		started = true;
 		while (!Exiting)
 			Tick();
 
 		// shutdown
 		for (int i = 0; i < modules.Count; i ++)
 			modules[i].Shutdown();
+		modules.Clear();
 
+		Graphics.Resources.DeleteAllocated();
 		Platform.FosterShutdown();
 		Platform.FreeUTF8(name);
 		started = false;
@@ -316,7 +333,7 @@ public static class App
 			Time.Frame++;
 			Time.Advance(delta);
 
-			Graphics.Step();
+			Graphics.Resources.DeleteRequested();
 			Input.Step();
 			Platform.FosterPollEvents();
 			FramePool.NextFrame();

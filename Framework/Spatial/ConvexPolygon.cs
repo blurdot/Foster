@@ -1,9 +1,10 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
-using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Foster.Framework;
 
+[StructLayout(LayoutKind.Sequential)]
 public unsafe struct ConvexPolygon : IConvexShape
 {
 	public const int MaxPoints = 32;
@@ -13,7 +14,7 @@ public unsafe struct ConvexPolygon : IConvexShape
 
 	public int Points
 	{
-		get => pointCount;
+		readonly get => pointCount;
 		set
 		{
 			Debug.Assert(value >= 0 && value < MaxPoints);
@@ -21,13 +22,44 @@ public unsafe struct ConvexPolygon : IConvexShape
 		}
 	}
 
-	public int Axis
+	public int Axes
 	{
-		get => pointCount;
+		readonly get => pointCount;
 		set
 		{
 			Debug.Assert(value >= 0 && value < MaxPoints);
 			pointCount = value;
+		}
+	}
+
+	public readonly Rect Bounds
+	{
+		get
+		{
+			Rect bounds = new(this[0].X, this[0].Y, 0, 0);
+
+			for (int i = 1; i < Points; i++)
+			{
+				if (this[i].X < bounds.X)
+				{
+					bounds.Width += bounds.X - this[i].X;
+					bounds.X = this[i].X;
+				}
+
+				if (this[i].X > bounds.Right)
+					bounds.Width = this[i].X - bounds.X;
+
+				if (this[i].Y < bounds.Y)
+				{
+					bounds.Height += bounds.Y - this[i].Y;
+					bounds.Y = this[i].Y;
+				}
+
+				if (this[i].Y > bounds.Bottom)
+					bounds.Height = this[i].Y - bounds.Y;
+			}	
+
+			return bounds;
 		}
 	}
 	
@@ -54,22 +86,19 @@ public unsafe struct ConvexPolygon : IConvexShape
 		points[index * 2 + 1] = position.Y;
 	}
 
-	public Vector2 GetPoint(int index)
+	public readonly Vector2 GetPoint(int index)
 	{
 		Debug.Assert(index >= 0 && index < MaxPoints);
-
-		return new Vector2(
-			points[index * 2 + 0], 
-			points[index * 2 + 1]);
+		return new(points[index * 2 + 0], points[index * 2 + 1]);
 	}
 
 	public Vector2 this[int index]
 	{
-		get => GetPoint(index);
+		readonly get => GetPoint(index);
 		set => SetPoint(index, value);
 	}
 
-	public Vector2 GetAxis(int index)
+	public readonly Vector2 GetAxis(int index)
 	{
 		Debug.Assert(index >= 0 && index < MaxPoints);
 
@@ -77,10 +106,18 @@ public unsafe struct ConvexPolygon : IConvexShape
 		var b = GetPoint(index >= pointCount - 1 ? 0 : index + 1);
 		var normal = (b - a).Normalized();
 
-		return new Vector2(-normal.Y, normal.X);
+		return new(-normal.Y, normal.X);
 	}
 
-	public void Project(in Vector2 axis, out float min, out float max)
+	public readonly bool Contains(in Vector2 vec2)
+	{
+		int total = 0;
+		for (int i = 0; i < Points; i++)
+			total += Calc.Orient(GetPoint(i), GetPoint((i + 1) % Points), vec2);
+		return Math.Abs(total) == Points;
+	}
+
+	public readonly void Project(in Vector2 axis, out float min, out float max)
 	{
 		if (pointCount <= 0)
 		{
@@ -136,8 +173,30 @@ public unsafe struct ConvexPolygon : IConvexShape
 
 	public static bool operator !=(in ConvexPolygon a, in ConvexPolygon b) => !(a == b);
 
-	public override bool Equals(object? obj) => obj is ConvexPolygon value && value == this;
-	public override int GetHashCode()
+	public static ConvexPolygon operator +(in ConvexPolygon a, in Vector2 b)
+	{
+		ConvexPolygon result = a;
+		for (int i = 0; i < result.pointCount * 2; i += 2)
+		{
+			result.points[i] += b.X;
+			result.points[i + 1] += b.Y;
+		}
+		return result;
+	}
+
+	public static ConvexPolygon operator -(in ConvexPolygon a, in Vector2 b)
+	{
+		ConvexPolygon result = a;
+		for (int i = 0; i < result.pointCount * 2; i += 2)
+		{
+			result.points[i] -= b.X;
+			result.points[i + 1] -= b.Y;
+		}
+		return result;
+	}
+
+	public readonly override bool Equals(object? obj) => obj is ConvexPolygon value && value == this;
+	public readonly override int GetHashCode()
 	{
 		var hash = pointCount.GetHashCode();
 		for (int i = 0, n = pointCount * 2; i < n; i ++)

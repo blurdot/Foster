@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace Foster.Framework;
 
+[StructLayout(LayoutKind.Sequential)]
 public struct Line : IConvexShape
 {
 	public Vector2 From;
 	public Vector2 To;
 
-	public int Points => 2;
-	public int Axis => 1;
+	public readonly int Points => 2;
+	public readonly int Axes => 1;
 
 	public Line(Vector2 from, Vector2 to)
 	{
@@ -17,26 +19,25 @@ public struct Line : IConvexShape
 		To = to;
 	}
 
-	public Rect Bounds => new Rect(From, To);
-	public float Length() => (To - From).Length();
+	public readonly Rect Bounds => new(From, To);
+	public readonly float Length => (To - From).Length();
+	public readonly Vector2 Normal => (To - From).Normalized();
 
-	public Vector2 GetAxis(int index)
+	public readonly Vector2 GetAxis(int index)
 	{
 		var axis = (To - From).Normalized();
 		return new Vector2(axis.Y, -axis.X);
 	}
 
-	public Vector2 GetPoint(int index)
-	{
-		return index switch
+	public readonly Vector2 GetPoint(int index)
+		=> index switch
 		{
 			0 => From,
 			1 => To,
 			_ => throw new IndexOutOfRangeException()
 		};
-	}
 
-	public void Project(in Vector2 axis, out float min, out float max)
+	public readonly void Project(in Vector2 axis, out float min, out float max)
 	{
 		min = float.MaxValue;
 		max = float.MinValue;
@@ -49,14 +50,58 @@ public struct Line : IConvexShape
 		max = Math.Max(dot, max);
 	}
 
-	static public Line operator +(Line a, Vector2 b)
+	public readonly Vector2 ClosestPoint(in Vector2 to)
 	{
-		return new Line(a.From + b, a.To + b);
+		var diff = To - From;
+		if (diff.X == 0 && diff.Y == 0)
+			return From;
+
+		var w = to - From;
+
+		var t = Vector2.Dot(w, diff) / (diff.X * diff.X + diff.Y * diff.Y);
+		if (t < 0)
+			t = 0;
+		else if (t > 1)
+			t = 1;
+
+		return diff * t + From;
 	}
 
-	static public Line operator -(Line a, Vector2 b)
+	public readonly float DistanceSquared(in Vector2 to)
+		=> Vector2.DistanceSquared(ClosestPoint(to), to);
+
+	public readonly float Distance(in Vector2 to)
+		=> Vector2.Distance(ClosestPoint(to), to);
+
+	public readonly bool Intersects(in Rect rect)
+		=> rect.Overlaps(this);
+
+	public readonly bool Intersects(in Circle circle)
+		=> circle.Overlaps(this);
+
+	public readonly bool Intersects(in Line other)
 	{
-		return new Line(a.From - b, a.To - b);
+		Vector2 b = To - From;
+		Vector2 d = other.To - other.From;
+		float bDotDPerp = b.X * d.Y - b.Y * d.X;
+
+		// if b dot d == 0, it means the lines are parallel so have infinite intersection points
+		if (bDotDPerp == 0)
+			return false;
+
+		Vector2 c = other.From - From;
+		float t = (c.X * d.Y - c.Y * d.X) / bDotDPerp;
+		if (t < 0 || t > 1)
+			return false;
+
+		float u = (c.X * b.Y - c.Y * b.X) / bDotDPerp;
+		if (u < 0 || u > 1)
+			return false;
+
+		return true;
 	}
+
+	static public Line operator +(Line a, Vector2 b) => new(a.From + b, a.To + b);
+	static public Line operator -(Line a, Vector2 b) => new(a.From - b, a.To - b);
 }
 

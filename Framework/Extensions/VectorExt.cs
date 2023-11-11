@@ -48,6 +48,12 @@ public static class VectorExt
 		=> new((int)MathF.Round(vector.X), (int)MathF.Round(vector.Y));
 
 	/// <summary>
+	/// Floors the individual components of a Vector2
+	/// </summary>
+	public static Point2 FloorToPoint2(this Vector2 vector)
+		=> new((int)MathF.Floor(vector.X), (int)MathF.Floor(vector.Y));
+
+	/// <summary>
 	/// Rounds the individual components of a Vector3
 	/// </summary>
 	public static Vector3 Round(this Vector3 vector)
@@ -161,10 +167,10 @@ public static class VectorExt
 	/// <summary>
 	/// Returns a Vector2 with the X-value of this Vector2, but zero Y
 	/// </summary>
-	public static Vector2 OnlyX(this Vector2 vector) => new Vector2(vector.X, 0);
+	public static Vector2 ZeroY(this Vector2 vector) => new Vector2(vector.X, 0);
 
 	/// <summary>
 	/// Returns a Vector2 with the Y-value of this Vector2, but zero X
 	/// </summary>
-	public static Vector2 OnlyY(this Vector2 vector) => new Vector2(0, vector.Y);
+	public static Vector2 ZeroX(this Vector2 vector) => new Vector2(0, vector.Y);
 }
