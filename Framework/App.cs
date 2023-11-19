@@ -12,6 +12,7 @@ public static class App
 	private static bool started = false;
 	private static TimeSpan lastTime;
 	private static TimeSpan accumulator;
+	private static TimeSpan renderAccumulator;
 	private static string title = string.Empty;
 	private static Platform.FosterFlags flags = 
 		Platform.FosterFlags.RESIZABLE | 
@@ -341,7 +342,19 @@ public static class App
 			for (int i = 0; i < modules.Count; i ++)
 				modules[i].Update();
 		}
-		
+
+		// Naive render rate cap
+		var renderCap = TimeSpan.FromSeconds(1.0f / 360.0f);
+		if (timer.Elapsed - lastTime < renderCap)
+		{
+			TimeSpan sleepTime = (renderCap - (timer.Elapsed - lastTime));
+			while (sleepTime.Microseconds > 100f)
+			{
+				Thread.Sleep(sleepTime);
+				sleepTime = (renderCap - (timer.Elapsed - lastTime));
+			}
+		}
+
 		Platform.FosterBeginFrame();
 
 		var currentTime = timer.Elapsed;
@@ -351,21 +364,6 @@ public static class App
 		if (Time.FixedStep)
 		{
 			accumulator += deltaTime;
-
-			// Do not let us run too fast
-			if (RenderRateLimited)
-			{
-				while (accumulator < Time.FixedStepTarget)
-				{
-					int milliseconds = (int)(Time.FixedStepTarget - accumulator).TotalMilliseconds;
-					Thread.Sleep(milliseconds);
-
-					currentTime = timer.Elapsed;
-					deltaTime = currentTime - lastTime;
-					lastTime = currentTime;
-					accumulator += deltaTime;
-				}
-			}
 
 			// Do not allow any update to take longer than our maximum.
 			if (accumulator > Time.FixedStepMaxElapsedTime)
