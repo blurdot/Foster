@@ -12,7 +12,6 @@ public static class App
 	private static bool started = false;
 	private static TimeSpan lastTime;
 	private static TimeSpan accumulator;
-	private static TimeSpan renderAccumulator;
 	private static string title = string.Empty;
 	private static Platform.FosterFlags flags = 
 		Platform.FosterFlags.RESIZABLE | 
