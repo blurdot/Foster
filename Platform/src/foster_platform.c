@@ -317,7 +317,7 @@ void FosterShutdown()
 	SDL_DestroyWindow(fstate.window);
 }
 
-bool FosterIsRunning()
+FosterBool FosterIsRunning()
 {
 	return fstate.running;
 }
@@ -360,12 +360,21 @@ void FosterSetFlags(FosterFlags flags)
 		SDL_SetWindowResizable(fstate.window, 
 			FOSTER_CHECK(flags, FOSTER_FLAG_RESIZABLE) ? SDL_TRUE : SDL_FALSE);
 
+		// mouse visible
+		SDL_ShowCursor(FOSTER_CHECK(flags, FOSTER_FLAG_MOUSE_VISIBLE) ? SDL_ENABLE : SDL_DISABLE);
+
 		// vsync
 		if (fstate.device.renderer == FOSTER_RENDERER_OPENGL)
 			SDL_GL_SetSwapInterval(FOSTER_CHECK(flags, FOSTER_FLAG_VSYNC) ? 1 : 0);
 
 		fstate.flags = flags;
 	}
+}
+
+void FosterSetCentered()
+{
+	FOSTER_ASSERT_RUNNING(FosterSetCentered);
+	SDL_SetWindowPosition(fstate.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 }
 
 const char* FosterGetUserPath()
@@ -399,7 +408,7 @@ const char* FosterGetClipboard()
 	return fstate.clipboardText;
 }
 
-bool FosterGetFocused()
+FosterBool FosterGetFocused()
 {
 	FOSTER_ASSERT_RUNNING_RET(FosterGetClipboard, false);
 	Uint32 flags = SDL_GetWindowFlags(fstate.window);

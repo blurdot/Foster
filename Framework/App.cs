@@ -65,7 +65,7 @@ public static class App
 	/// <summary>
 	/// Returns whether the Application Window is currently Focused or not.
 	/// </summary>
-	public static bool Focused => Platform.FosterGetFocused();
+	public static bool Focused => Platform.FosterGetFocused() != 0;
 
 	/// <summary>
 	/// The Window width, which isn't necessarily the size in Pixels depending on the Platform.
@@ -77,6 +77,14 @@ public static class App
 		{
 			Platform.FosterGetSize(out int w, out _);
 			return w;
+		}
+		set
+		{
+			if (Width != value)
+			{
+				Platform.FosterSetSize(value, Height);
+				Platform.FosterSetCentered();
+			}
 		}
 	}
 
@@ -90,6 +98,35 @@ public static class App
 		{
 			Platform.FosterGetSize(out _, out int h);
 			return h;
+		}
+		set
+		{
+			if (Height != value)
+			{
+				Platform.FosterSetSize(Width, value);
+				Platform.FosterSetCentered();
+			}
+		}
+	}
+
+	/// <summary>
+	/// The Window size, which isn't necessarily the size in Pixels depending on the Platform.
+	/// Use SizeInPixels to get the drawable size.
+	/// </summary>
+	public static Point2 Size
+	{
+		get
+		{
+			Platform.FosterGetSize(out int w, out int h);
+			return new(w, h);
+		}
+		set
+		{
+			if (Size != value)
+			{
+				Platform.FosterSetSize(value.X, value.Y);
+				Platform.FosterSetCentered();
+			}
 		}
 	}
 
@@ -114,6 +151,18 @@ public static class App
 		{
 			Platform.FosterGetSizeInPixels(out _, out int h);
 			return h;
+		}
+	}
+
+	/// <summary>
+	/// The Size of the Window in Pixels
+	/// </summary>
+	public static Point2 SizeInPixels
+	{
+		get
+		{
+			Platform.FosterGetSizeInPixels(out int w, out int h);
+			return new(w, h);
 		}
 	}
 
