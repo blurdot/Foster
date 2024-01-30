@@ -62,17 +62,21 @@ public class VirtualAxis
 		}
 		else if (OverlapBehaviour == Overlaps.TakeNewer)
 		{
-			if (Negative.PressTimestamp > Positive.PressTimestamp)
-				value = negativeValue;
-			else
+			if (Positive.Down && Negative.Down)
+				value = Negative.PressTimestamp > Positive.PressTimestamp ? negativeValue : positiveValue;
+			else if (Positive.Down)
 				value = positiveValue;
+			else
+				value = negativeValue;
 		}
 		else if (OverlapBehaviour == Overlaps.TakeOlder)
 		{
-			if (Negative.PressTimestamp < Positive.PressTimestamp)
-				value = negativeValue;
-			else
+			if (Positive.Down && Negative.Down)
+				value = Negative.PressTimestamp < Positive.PressTimestamp ? negativeValue : positiveValue;
+			else if (Positive.Down)
 				value = positiveValue;
+			else
+				value = negativeValue;
 		}
 
 		return value;
@@ -93,7 +97,7 @@ public class VirtualAxis
 
 	public VirtualAxis AddNegative(Keys key)
 	{
-		Positive.Add(key);
+		Negative.Add(key);
 		return this;
 	}
 

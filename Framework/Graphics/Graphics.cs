@@ -73,9 +73,14 @@ namespace Foster.Framework
 			if (command.Material != null && command.Material.Shader != null && !command.Material.Shader.IsDisposed)
 				shader = command.Material.Shader.resource;
 
-			Debug.Assert(command.Target == null || !command.Target.IsDisposed, "Target is invalid");
-			Debug.Assert(command.Mesh != null && !command.Mesh.IsDisposed, "Mesh is Invalid");
-			Debug.Assert(shader != IntPtr.Zero, "Material Shader is Invalid");
+			if (shader == IntPtr.Zero)
+				throw new Exception("Material Shader is Invalid");
+
+			if (command.Target != null && command.Target.IsDisposed)
+				throw new Exception("Mesh is Invalid");
+
+			if (command.Mesh == null || command.Mesh.IsDisposed)
+				throw new Exception("Target is invalid");
 
 			Platform.FosterDrawCommand fc = new()
 			{
@@ -88,6 +93,7 @@ namespace Foster.Framework
 				indexCount = command.MeshIndexCount,
 				instanceCount = 0,
 				compare = command.DepthCompare,
+				depthMask = command.DepthMask ? 1 : 0,
 				cull = command.CullMode,
 				blend = command.BlendMode,
 			};

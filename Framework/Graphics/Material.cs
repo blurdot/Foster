@@ -189,12 +189,26 @@ public class Material
 		}
 		Set(uniform, data);
 	}
+	
+	public void Set(string uniform, ReadOnlySpan<Matrix4x4> value)
+	{
+		Span<float> data = stackalloc float[value.Length * 16];
+		for (int i = 0, n = 0; i < value.Length; i ++, n += 16)
+		{
+			data[n + 0] = value[i].M11; data[n + 1] = value[i].M12; data[n + 2] = value[i].M13; data[n + 3] = value[i].M14; 
+			data[n + 4] = value[i].M21; data[n + 5] = value[i].M22; data[n + 6] = value[i].M23; data[n + 7] = value[i].M24;
+			data[n + 8] = value[i].M31; data[n + 9] = value[i].M32; data[n +10] = value[i].M33; data[n +11] = value[i].M34;
+			data[n +12] = value[i].M41; data[n +13] = value[i].M42; data[n +14] = value[i].M43; data[n +15] = value[i].M44;
+		}
+		Set(uniform, data);
+	}
 
 	public unsafe void Set(string uniform, ReadOnlySpan<float> values)
 	{
 		var it = Get(uniform);
 
-		Debug.Assert(IsFloat(it.Type), $"Uniform '{uniform}' is not a Float value type");
+		if (!IsFloat(it.Type))
+			throw new Exception($"Uniform '{uniform}' is not a Float value type");
 
 		var subspan = values[0..Math.Min(values.Length, it.BufferLength)];
 		subspan.CopyTo(floatBuffer.AsSpan()[it.BufferStart..]);
@@ -204,8 +218,10 @@ public class Material
 	{
 		var it = Get(uniform);
 
-		Debug.Assert(it.Type == UniformType.Texture2D, $"Uniform '{uniform}' is not a Texture2D value type");
-		Debug.Assert(index < it.BufferLength, $"Uniform '{uniform}' with index {index} is out of bounds");
+		if (it.Type != UniformType.Texture2D)
+			throw new Exception($"Uniform '{uniform}' is not a Texture2D value type");
+		if (index >= it.BufferLength)
+			throw new Exception($"Uniform '{uniform}' with index {index} is out of bounds");
 
 		textureBuffer[it.BufferStart + index] = texture;
 	}
@@ -214,8 +230,10 @@ public class Material
 	{
 		var it = Get(uniform);
 
-		Debug.Assert(it.Type == UniformType.Sampler2D, $"Uniform '{uniform}' is not a Sampler2D value type");
-		Debug.Assert(index < it.BufferLength, $"Uniform '{uniform}' with index {index} is out of bounds");
+		if (it.Type != UniformType.Sampler2D)
+			throw new Exception($"Uniform '{uniform}' is not a Sampler2D value type");
+		if (index >= it.BufferLength)
+			throw new Exception($"Uniform '{uniform}' with index {index} is out of bounds");
 
 		samplerBuffer[it.BufferStart + index] = sampler;
 	}
@@ -275,8 +293,7 @@ public class Material
 				return it;
 		}
 
-		Debug.Assert(false, $"Uniform '{uniform}' does not exist");
-		return default;
+		throw new Exception($"Uniform '{uniform}' does not exist");
 	}
 
 	/// <summary>

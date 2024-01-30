@@ -221,6 +221,8 @@ typedef char             GLchar;
 #define GL_DEBUG_SEVERITY_NOTIFICATION 0x826B
 #define GL_DEBUG_OUTPUT 0x92E0
 #define GL_DEBUG_OUTPUT_SYNCHRONOUS 0x8242
+#define GL_COMPILE_STATUS 0x8B81
+#define GL_LINK_STATUS 0x8B82
 
 // OpenGL Functions
 #define GL_FUNCTIONS \
@@ -260,6 +262,7 @@ typedef char             GLchar;
 	GL_FUNC(GetTexImage, void, GLenum target, GLint level, GLenum format, GLenum type, void* data) \
 	GL_FUNC(DrawElements, void, GLenum mode, GLint count, GLenum type, void* indices) \
 	GL_FUNC(DrawElementsInstanced, void, GLenum mode, GLint count, GLenum type, void* indices, GLint amount) \
+	GL_FUNC(DrawBuffers, void, GLsizei n, const GLenum* bufs) \
 	GL_FUNC(DeleteTextures, void, GLint n, GLuint* textures) \
 	GL_FUNC(DeleteRenderbuffers, void, GLint n, GLuint* renderbuffers) \
 	GL_FUNC(DeleteFramebuffers, void, GLint n, GLuint* textures) \
@@ -353,6 +356,7 @@ typedef struct FosterTexure_OpenGL
 	GLenum glInternalFormat;
 	GLenum glFormat;
 	GLenum glType;
+	GLenum glAttachment;
 	FosterTextureSampler sampler;
 	
 	// Because Shader uniforms assign textures, it's possible for the user to
@@ -368,6 +372,8 @@ typedef struct FosterTarget_OpenGL
 	GLuint id;
 	int width;
 	int height;
+	int attachmentCount;
+	int colorAttachmentCount;
 	FosterTexture_OpenGL* attachments[FOSTER_MAX_TARGET_ATTACHMENTS];
 } FosterTarget_OpenGL;
 
@@ -432,6 +438,7 @@ typedef struct
 	FosterCompare stateCompare;
 	FosterCull stateCull;
 	FosterBlend stateBlend;
+	int stateDepthMask;
 
 	// info
 	int max_color_attachments;
@@ -665,7 +672,24 @@ void FosterBindFrameBuffer(FosterTarget_OpenGL* target)
 	}
 
 	if (fgl.stateInitializing || fgl.stateFrameBuffer != framebuffer)
+	{
+		GLenum attachments[4];
 		fgl.glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+
+		// figure out draw buffers
+		if (target == NULL)
+		{
+			attachments[0] = GL_BACK;
+			fgl.glDrawBuffers(1, attachments);
+		}
+		else
+		{
+			for (int i = 0; i < target->colorAttachmentCount; i ++)
+				attachments[i] = GL_COLOR_ATTACHMENT0 + i;
+			fgl.glDrawBuffers(target->colorAttachmentCount, attachments);
+		}
+
+	}
 	fgl.stateFrameBuffer = framebuffer;
 }
 
@@ -890,6 +914,19 @@ void FosterSetCompare(FosterCompare compare)
 	fgl.stateCompare = compare;
 }
 
+void FosterSetDepthMask(int depthMask)
+{
+	if (fgl.stateInitializing || depthMask != fgl.stateDepthMask)
+	{
+		if (depthMask)
+			fgl.glDepthMask(1);
+		else
+			fgl.glDepthMask(0);
+	}
+
+	fgl.stateDepthMask = depthMask;
+}
+
 void FosterSetCull(FosterCull cull)
 {
 	if (fgl.stateInitializing || cull != fgl.stateCull)
@@ -999,6 +1036,7 @@ bool FosterInitialize_OpenGL()
 	FosterSetBlend(&zeroBlend);
 	FosterSetCull(FOSTER_CULL_NONE);
 	FosterSetCompare(FOSTER_COMPARE_NONE);
+	FosterSetDepthMask(0);
 	fgl.stateInitializing = 0;
 
 	// zero out texture state
@@ -1127,6 +1165,8 @@ FosterTarget* FosterTargetCreate_OpenGL(int width, int height, FosterTextureForm
 	result.id = 0;
 	result.width = width;
 	result.height = height;
+	result.attachmentCount = attachmentCount;
+	result.colorAttachmentCount = 0;
 	for (int i = 0; i < FOSTER_MAX_TARGET_ATTACHMENTS; i ++)
 		result.attachments[i] = NULL;
 
@@ -1150,12 +1190,15 @@ FosterTarget* FosterTargetCreate_OpenGL(int width, int height, FosterTextureForm
 
 		if (attachments[i] == FOSTER_TEXTURE_FORMAT_DEPTH24_STENCIL8)
 		{
-			fgl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, tex->id, 0);
+			tex->glAttachment = GL_DEPTH_STENCIL_ATTACHMENT;
 		}
 		else
 		{
-			fgl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, tex->id, 0);
+			tex->glAttachment = GL_COLOR_ATTACHMENT0 + result.colorAttachmentCount;
+			result.colorAttachmentCount++;
 		}
+
+		fgl.glFramebufferTexture2D(GL_FRAMEBUFFER, tex->glAttachment, GL_TEXTURE_2D, tex->id, 0);
 	}
 
 	// since we manually set the framebuffer above, clear buffer assignment to maintain correct state
@@ -1214,11 +1257,20 @@ FosterShader* FosterShaderCreate_OpenGL(FosterShaderData* data)
 		fgl.glCompileShader(vertexShader);
 		fgl.glGetShaderInfoLog(vertexShader, 1024, &logLength, log);
 
-		if (logLength > 0)
+		GLint params;
+		fgl.glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &params);
+
+		// validate shader
+		if (!params)
 		{
 			fgl.glDeleteShader(vertexShader);
-			FosterLogError("%s", log);
+			if (logLength > 0)
+				FosterLogError("%s", log);
 			return NULL;
+		}
+		else if (logLength > 0)
+		{
+			FosterLogInfo("%s", log);
 		}
 	}
 
@@ -1229,12 +1281,21 @@ FosterShader* FosterShaderCreate_OpenGL(FosterShaderData* data)
 		fgl.glCompileShader(fragmentShader);
 		fgl.glGetShaderInfoLog(fragmentShader, 1024, &logLength, log);
 
-		if (logLength > 0)
+		GLint params;
+		fgl.glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &params);
+
+		// validate shader
+		if (!params)
 		{
 			fgl.glDeleteShader(vertexShader);
 			fgl.glDeleteShader(fragmentShader);
-			FosterLogError("%s", log);
+			if (logLength > 0)
+				FosterLogError("%s", log);
 			return NULL;
+		}
+		else if (logLength > 0)
+		{
+			FosterLogInfo("%s", log);
 		}
 	}
 
@@ -1249,10 +1310,19 @@ FosterShader* FosterShaderCreate_OpenGL(FosterShaderData* data)
 	fgl.glDeleteShader(vertexShader);
 	fgl.glDeleteShader(fragmentShader);
 
-	if (logLength > 0)
+	// validate link status
+	GLint linkResult;
+	fgl.glGetProgramiv(id, GL_LINK_STATUS, &linkResult);
+
+	if (!linkResult)
 	{
-		FosterLogError("%s", log);
+		if (logLength > 0)
+			FosterLogError("%s", log);
 		return NULL;
+	}
+	else if (logLength > 0)
+	{
+		FosterLogInfo("%s", log);
 	}
 
 	FosterShader_OpenGL* shader = (FosterShader_OpenGL*)SDL_malloc(sizeof(FosterShader_OpenGL));
@@ -1587,6 +1657,7 @@ void FosterDraw_OpenGL(FosterDrawCommand* command)
 	FosterBindArray(mesh->id);
 	FosterSetBlend(&command->blend);
 	FosterSetCompare(command->compare);
+	FosterSetDepthMask(command->depthMask);
 	FosterSetCull(command->cull);
 	FosterSetViewport(command->hasViewport, command->viewport);
 	FosterSetScissor(command->hasScissor, command->scissor);
@@ -1674,6 +1745,8 @@ void FosterClear_OpenGL(FosterClearCommand* command)
 		
 	if ((command->mask & FOSTER_CLEAR_MASK_DEPTH) == FOSTER_CLEAR_MASK_DEPTH)
 	{
+		FosterSetDepthMask(1);
+
 		clear |= GL_DEPTH_BUFFER_BIT;
 		if (fgl.glClearDepth)
 			fgl.glClearDepth(command->depth);
