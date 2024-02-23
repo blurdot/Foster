@@ -40,7 +40,15 @@ if (APPLE)
 elseif (WIN32)
 	set(FosterTarget x64)
 elseif (UNIX)
-	set(FosterTarget lib64)
+	if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+		set(FosterTarget libarm64)
+	elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv7l")
+		set(FosterTarget libarm)
+	elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "armv6l")
+		set(FosterTarget libarm)
+	else()
+		set(FosterTarget lib64)
+	endif()
 else()
 	message(FATAL_ERROR "Unknown Target!")
 endif()
@@ -101,7 +109,7 @@ else()
 		FetchContent_Declare(
 			SDL2
 			GIT_REPOSITORY https://github.com/libsdl-org/SDL
-			GIT_TAG release-2.28.5
+			GIT_TAG release-2.30.0
 			GIT_PROGRESS TRUE
 		)
 		FetchContent_MakeAvailable(SDL2)

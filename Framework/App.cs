@@ -14,9 +14,9 @@ public static class App
 	private static TimeSpan accumulator;
 	private static string title = string.Empty;
 	private static Platform.FosterFlags flags = 
-		Platform.FosterFlags.RESIZABLE | 
-		Platform.FosterFlags.VSYNC |
-		Platform.FosterFlags.MOUSE_VISIBLE;
+		Platform.FosterFlags.Resizable |
+		Platform.FosterFlags.Vsync |
+		Platform.FosterFlags.MouseVisible;
 
 	/// <summary>
 	/// Foster Version Number
@@ -167,6 +167,18 @@ public static class App
 	}
 
 	/// <summary>
+	/// Gets the Size of the Display that the Application Window is currently in.
+	/// </summary>
+	public static Point2 DisplaySize
+	{
+		get
+		{
+			Platform.FosterGetDisplaySize(out int w, out int h);
+			return new(w, h);
+		}
+	}
+
+	/// <summary>
 	/// Gets the Content Scale for the Application Window.
 	/// In the future this should try to use the Display DPI, however the SDL2
 	/// implementation doesn't have very reliable values across platforms.
@@ -183,11 +195,11 @@ public static class App
 	/// </summary>
 	public static bool Fullscreen
 	{
-		get => flags.Has(Platform.FosterFlags.FULLSCREEN);
+		get => flags.Has(Platform.FosterFlags.Fullscreen);
 		set
 		{
-			if (value) flags |= Platform.FosterFlags.FULLSCREEN;
-			else flags &= ~Platform.FosterFlags.FULLSCREEN;
+			if (value) flags |= Platform.FosterFlags.Fullscreen;
+			else flags &= ~Platform.FosterFlags.Fullscreen;
 			Platform.FosterSetFlags(flags);
 		}
 	}
@@ -197,11 +209,11 @@ public static class App
 	/// </summary>
 	public static bool Resizable
 	{
-		get => flags.Has(Platform.FosterFlags.RESIZABLE);
+		get => flags.Has(Platform.FosterFlags.Resizable);
 		set
 		{
-			if (value) flags |= Platform.FosterFlags.RESIZABLE;
-			else flags &= ~Platform.FosterFlags.RESIZABLE;
+			if (value) flags |= Platform.FosterFlags.Resizable;
+			else flags &= ~Platform.FosterFlags.Resizable;
 			Platform.FosterSetFlags(flags);
 		}
 	}
@@ -211,11 +223,11 @@ public static class App
 	/// </summary>
 	public static bool VSync
 	{
-		get => flags.Has(Platform.FosterFlags.VSYNC);
+		get => flags.Has(Platform.FosterFlags.Vsync);
 		set
 		{
-			if (value) flags |= Platform.FosterFlags.VSYNC;
-			else flags &= ~Platform.FosterFlags.VSYNC;
+			if (value) flags |= Platform.FosterFlags.Vsync;
+			else flags &= ~Platform.FosterFlags.Vsync;
 			Platform.FosterSetFlags(flags);
 		}
 	}
@@ -225,11 +237,11 @@ public static class App
 	/// </summary>
 	public static bool MouseVisible
 	{
-		get => flags.Has(Platform.FosterFlags.MOUSE_VISIBLE);
+		get => flags.Has(Platform.FosterFlags.MouseVisible);
 		set
 		{
-			if (value) flags |= Platform.FosterFlags.MOUSE_VISIBLE;
-			else flags &= ~Platform.FosterFlags.MOUSE_VISIBLE;
+			if (value) flags |= Platform.FosterFlags.MouseVisible;
+			else flags &= ~Platform.FosterFlags.MouseVisible;
 			Platform.FosterSetFlags(flags);
 		}
 	}
@@ -239,6 +251,11 @@ public static class App
 	/// If not assigned, the default behavior is to call <see cref="App.Exit"/>.
 	/// </summary>
 	public static Action? OnExitRequested;
+
+	/// <summary>
+	/// Called only in DEBUG builds when a hot reload occurs.
+	/// </summary>
+	public static Action? OnHotReload;
 
 	/// <summary>
 	/// The Main Thread that the Application was Run on
@@ -257,6 +274,9 @@ public static class App
 	/// </summary>
 	public static void Register<T>() where T : Module, new()
 	{
+		if (Exiting)
+			throw new Exception("Cannot register new Modules while the Application is shutting down");
+
 		if (!started)
 		{
 			registrations.Add(() => new T());
@@ -271,9 +291,9 @@ public static class App
 
 	/// <summary>
 	/// Runs the Application with the given Module automatically registered.
-	/// Functionally the same as calling <see cref="Register{T}"/> followed by <see cref="Run(string, int, int, bool)"/>
+	/// Functionally the same as calling <see cref="Register{T}"/> followed by <see cref="Run(string, int, int, bool, Renderers)"/>
 	/// </summary>
-	public static void Run<T>(string applicationName, int width, int height, bool fullscreen = false) where T : Module, new()
+	public static void Run<T>(string applicationName, int width, int height, bool fullscreen = false, Renderers renderer = Renderers.None) where T : Module, new()
 	{
 		Register<T>();
 		Run(applicationName, width, height, fullscreen);
@@ -282,24 +302,26 @@ public static class App
 	/// <summary>
 	/// Runs the Application
 	/// </summary>
-	public static void Run(string applicationName, int width, int height, bool fullscreen = false)
+	public static void Run(string applicationName, int width, int height, bool fullscreen = false, Renderers renderer = Renderers.None)
 	{
 		Debug.Assert(!Running, "Application is already running");
 		Debug.Assert(!Exiting, "Application is still exiting");
+		Debug.Assert(width > 0 && height > 0, "Width or height is <= 0");
 
 		Log.Info($"Foster: v{Version.Major}.{Version.Minor}.{Version.Build}");
 		Log.Info($"Platform: {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})");
 		Log.Info($"Framework: {RuntimeInformation.FrameworkDescription}");
-
-		Running = true;
+		
 		MainThreadID = Thread.CurrentThread.ManagedThreadId;
 
+		// toggle fulscreen flag
 		if (fullscreen)
-			App.flags |= Platform.FosterFlags.FULLSCREEN;
+			flags |= Platform.FosterFlags.Fullscreen;
 
-		App.title = applicationName;
-		App.Name = applicationName;
-		var name = Platform.ToUTF8(applicationName);
+		// run the application
+		var name = Platform.ToUTF8(applicationName); 
+		title = applicationName;
+		Name = applicationName;
 
 		Platform.FosterStartup(new()
 		{
@@ -307,31 +329,19 @@ public static class App
 			applicationName = name,
 			width = width,
 			height = height,
-			flags = App.flags,
-			logging = 0,
-			onLogInfo = Log.Info,
-			onLogWarn = Log.Warning,
-			onLogError = Log.Error,
-			onText = Input.OnText,
-			onKey = Input.OnKey,
-			onMouseButton = Input.OnMouseButton,
-			onMouseMove = Input.OnMouseMove,
-			onMouseWheel = Input.OnMouseWheel,
-			onControllerConnect = Input.OnControllerConnect,
-			onControllerDisconnect = Input.OnControllerDisconnect,
-			onControllerButton = Input.OnControllerButton,
-			onControllerAxis = Input.OnControllerAxis,
-			onExitRequest = () =>
-			{
-				if (OnExitRequested != null)
-					OnExitRequested();
-				else
-					Exit();
-			}
+			renderer = renderer,
+			flags = flags,
 		});
 
+		if(Platform.FosterIsRunning() == 0)
+			throw new Exception("Platform is not running");
+
+		Running = true;
 		UserPath = Platform.ParseUTF8(Platform.FosterGetUserPath());
 		Graphics.Initialize();
+
+		// load default input mappings if they exist
+		Input.AddDefaultSdlGamepadMappings(AppContext.BaseDirectory);
 
 		// Clear Time
 		Time.Frame = 0;
@@ -339,6 +349,10 @@ public static class App
 		lastTime = TimeSpan.Zero;
 		accumulator = TimeSpan.Zero;
 		timer.Restart();
+
+		// poll events once, so input has controller state before Startup
+		PollEvents();
+		Input.Step();
 
 		// register & startup all modules in order
 		// this is in a loop in case a module registers more modules
@@ -363,7 +377,7 @@ public static class App
 			Tick();
 
 		// shutdown
-		for (int i = 0; i < modules.Count; i ++)
+		for (int i = modules.Count - 1; i >= 0; i --)
 			modules[i].Shutdown();
 		modules.Clear();
 
@@ -375,6 +389,16 @@ public static class App
 		Exiting = false;
 	}
 
+	/// <summary>
+	/// Notifies the Application to Exit.
+	/// The Application may finish the current frame before exiting.
+	/// </summary>
+	public static void Exit()
+	{
+		if (Running)
+			Exiting = true;
+	}
+
 	private static void Tick()
 	{
 		static void Update(TimeSpan delta)
@@ -384,7 +408,7 @@ public static class App
 
 			Graphics.Resources.DeleteRequested();
 			Input.Step();
-			Platform.FosterPollEvents();
+			PollEvents();
 			FramePool.NextFrame();
 
 			for (int i = 0; i < modules.Count; i ++)
@@ -442,13 +466,35 @@ public static class App
 		Platform.FosterEndFrame();
 	}
 
-	/// <summary>
-	/// Notifies the Application to Exit.
-	/// The Application may finish the current frame before exiting.
-	/// </summary>
-	public static void Exit()
+	private static void PollEvents()
 	{
-		if (Running)
-			Exiting = true;
+		while (Platform.FosterPollEvents(out var ev) != 0)
+		{
+			switch (ev.EventType)
+			{
+			case Platform.FosterEventType.None:
+				break;
+			case Platform.FosterEventType.ExitRequested:
+				if (started)
+				{
+					if (OnExitRequested != null)
+						OnExitRequested();
+					else
+						Exit();
+				}
+				break;
+			case Platform.FosterEventType.KeyboardInput:
+			case Platform.FosterEventType.KeyboardKey:
+			case Platform.FosterEventType.MouseButton:
+			case Platform.FosterEventType.MouseMove:
+			case Platform.FosterEventType.MouseWheel:
+			case Platform.FosterEventType.ControllerConnect:
+			case Platform.FosterEventType.ControllerDisconnect:
+			case Platform.FosterEventType.ControllerButton:
+			case Platform.FosterEventType.ControllerAxis:
+				Input.OnFosterEvent(ev);
+				break;
+			}
+		}
 	}
 }
