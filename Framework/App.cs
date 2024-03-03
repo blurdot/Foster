@@ -416,7 +416,7 @@ public static class App
 		}
 
 		// Naive render rate cap
-		var renderCap = TimeSpan.FromSeconds(1.0f / 360.0f);
+		var renderCap = TimeSpan.FromSeconds(1.0f / 144.0f);
 		if (timer.Elapsed - lastTime < renderCap)
 		{
 			TimeSpan sleepTime = (renderCap - (timer.Elapsed - lastTime));

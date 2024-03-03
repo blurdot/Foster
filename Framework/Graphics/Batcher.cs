@@ -7,6 +7,9 @@ namespace Foster.Framework;
 
 public class Batcher : IDisposable
 {
+	public static Color Mode = new(255, 0, 0, 0);
+	public static bool FlipVerticalUV;
+
 	/// <summary>
 	/// Vertex Format of Batcher.Vertex
 	/// </summary>
@@ -34,7 +37,7 @@ public class Batcher : IDisposable
 	/// <summary>
 	/// The Default shader used by the Batcher.
 	/// </summary>
-	private static Shader? DefaultShader;
+	public static Shader? DefaultShader;
 
 	/// <summary>
 	/// The current Matrix Value of the Batcher
@@ -123,6 +126,13 @@ public class Batcher : IDisposable
 			Elements = elements;
 			FlipVerticalUV = (texture?.IsTargetAttachment ?? false) && Graphics.OriginBottomLeft;
 		}
+	}
+
+	public Batcher(Shader defaultShader)
+	{
+		DefaultShader = defaultShader;
+		defaultMaterialState = new(new Material(DefaultShader), "u_matrix", "u_texture", "u_texture_sampler");
+		Clear();
 	}
 
 	public Batcher()
@@ -1357,6 +1367,65 @@ public class Batcher : IDisposable
 		}
 
 		PopMatrix();
+	}
+
+	#endregion
+
+	#region Forge
+
+	public void ImageForge(Texture texture, ref Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Color color)
+	{
+		var was = Matrix;
+
+		Matrix = modelMatrix * Matrix;
+
+		SetTexture(texture);
+
+		Quad(
+			Vector2.Zero,
+			new Vector2(sizeInWorldUnits.X, 0f),
+			new Vector2(sizeInWorldUnits.X, sizeInWorldUnits.Y),
+			new Vector2(0f, sizeInWorldUnits.Y),
+			new Vector2(0, 0),
+			Vector2.UnitX,
+			new Vector2(1, 1),
+			Vector2.UnitY,
+			color);
+
+		Matrix = was;
+	}
+
+	public void Mesh(Texture texture, Span<int> indices, ReadOnlySpan<Vertex> vertices)
+	{
+		bool wasFlip = FlipVerticalUV;
+		FlipVerticalUV = false;
+		SetTexture(texture);
+		FlipVerticalUV = wasFlip;
+
+		EnsureIndexCapacity(indexCount + indices.Length);
+		EnsureVertexCapacity(vertexCount + vertices.Length);
+
+		// Adjust mesh indices by batch indices
+		for (int i = 0; i < indices.Length; i++)
+		{
+			indices[i] += vertexCount;
+		}
+
+		unsafe
+		{
+			var indexArray = new Span<int>((int*)indexPtr + indexCount, indices.Length);
+			indices.CopyTo(indexArray);
+			var vertexArray = new Span<Vertex>((Vertex*)vertexPtr + vertexCount, vertices.Length);
+			vertices.CopyTo(vertexArray);
+
+			if (currentBatch.FlipVerticalUV)
+				FlipVerticalUVs(vertexPtr, vertexCount, vertices.Length);
+		}
+
+		indexCount += indices.Length;
+		vertexCount += vertices.Length;
+		currentBatch.Elements += indices.Length / 3;
+		dirty = true;
 	}
 
 	#endregion
