@@ -1395,6 +1395,73 @@ public class Batcher : IDisposable
 		Matrix = was;
 	}
 
+	public void TextImageForge(in Subtexture subtex, in Vector2 position, Color color)
+	{
+		SetTexture(subtex.Texture);
+		Quad(
+			position + subtex.DrawCoords0,
+			position + subtex.DrawCoords1,
+			position + subtex.DrawCoords2,
+			position + subtex.DrawCoords3,
+			subtex.TexCoords3,
+			subtex.TexCoords2,
+			subtex.TexCoords1,
+			subtex.TexCoords0,
+			color);
+	}
+
+	public void TextForge(SpriteFont font, ReadOnlySpan<char> text, Vector2 position, Color color)
+	{
+		TextForge(font, text, position, Vector2.Zero, color);
+	}
+
+	public void TextForge(SpriteFont font, ReadOnlySpan<char> text, Vector2 position, Vector2 justify, Color color)
+	{
+		var at = position + new Vector2(0f, -font.Ascent);
+		var last = 0;
+
+		color = Color.Black;
+
+		if (justify.X != 0)
+			at.X -= justify.X * font.WidthOfLine(text);
+
+		if (justify.Y != 0)
+			at.Y += justify.Y * font.HeightOf(text);
+
+		at.X = Calc.Round(at.X);
+		at.Y = Calc.Round(at.Y);
+
+		for (int i = 0; i < text.Length; i++)
+		{
+			if (text[i] == '\n')
+			{
+				at.X = position.X;
+				if (justify.X != 0 && i < text.Length - 1)
+					at.X -= justify.X * font.WidthOfLine(text[(i + 1)..]);
+				at.Y -= font.LineHeight;
+				last = 0;
+				continue;
+			}
+
+			if (font.TryGetCharacter(text, i, out var ch, out var step))
+			{
+				if (last != 0)
+					at.X += font.GetKerning(last, ch.Codepoint);
+
+				ch.Offset.Y = 0f;
+
+				if (ch.Subtexture.Texture != null)
+					TextImageForge(ch.Subtexture, at + ch.Offset, color);
+
+				// TODO: Would be nice if we could also pass in a fontHeightWorld or w/e like we do Size for Sprite...
+
+				last = ch.Codepoint;
+				at.X += ch.Advance;
+				i += step - 1;
+			}
+		}
+	}
+
 	public void Mesh(Texture texture, Span<int> indices, ReadOnlySpan<Vertex> vertices)
 	{
 		bool wasFlip = FlipVerticalUV;
@@ -1708,7 +1775,9 @@ public class Batcher : IDisposable
 					at.X += font.GetKerning(last, ch.Codepoint);
 
 				if (ch.Subtexture.Texture != null)
-					Image(ch.Subtexture, at + ch.Offset, color);
+					Image(ch.Subtexture, at + ch.Offset, color); // TODO: Make a Forge version that flips the Y?
+
+				// TODO: Would be nice if we could also pass in a fontHeightWorld or w/e like we do Size for Sprite...
 
 				last = ch.Codepoint;
 				at.X += ch.Advance;
