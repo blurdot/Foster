@@ -1407,7 +1407,8 @@ public class Batcher : IDisposable
 			subtex.TexCoords2,
 			subtex.TexCoords1,
 			subtex.TexCoords0,
-			color);
+			color
+			);
 	}
 
 	public void TextForge(SpriteFont font, ReadOnlySpan<char> text, Vector2 position, Color color)
@@ -1428,8 +1429,8 @@ public class Batcher : IDisposable
 		if (justify.Y != 0)
 			at.Y += justify.Y * font.HeightOf(text);
 
-		at.X = Calc.Round(at.X);
-		at.Y = Calc.Round(at.Y);
+		//at.X = Calc.Round(at.X);
+		//at.Y = Calc.Round(at.Y);
 
 		for (int i = 0; i < text.Length; i++)
 		{
@@ -1446,12 +1447,17 @@ public class Batcher : IDisposable
 			if (font.TryGetCharacter(text, i, out var ch, out var step))
 			{
 				if (last != 0)
+				{
 					at.X += font.GetKerning(last, ch.Codepoint);
+				}
 
-				ch.Offset.Y = 0f;
+				float charHeight = ch.Subtexture.DrawCoords1.Y - ch.Subtexture.DrawCoords2.Y;
+				ch.Offset.Y = charHeight - ch.Offset.Y;
 
 				if (ch.Subtexture.Texture != null)
+				{
 					TextImageForge(ch.Subtexture, at + ch.Offset, color);
+				}
 
 				// TODO: Would be nice if we could also pass in a fontHeightWorld or w/e like we do Size for Sprite...
 
