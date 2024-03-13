@@ -1429,8 +1429,8 @@ public class Batcher : IDisposable
 		if (justify.Y != 0)
 			at.Y += justify.Y * font.HeightOf(text);
 
-		//at.X = Calc.Round(at.X);
-		//at.Y = Calc.Round(at.Y);
+		at.X = Calc.Round(at.X);
+		at.Y = Calc.Round(at.Y);
 
 		for (int i = 0; i < text.Length; i++)
 		{
