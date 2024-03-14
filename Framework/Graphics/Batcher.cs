@@ -1421,8 +1421,6 @@ public class Batcher : IDisposable
 		var at = position + new Vector2(0f, -font.Ascent);
 		var last = 0;
 
-		color = Color.Black;
-
 		if (justify.X != 0)
 			at.X -= justify.X * font.WidthOfLine(text);
 
