@@ -1395,14 +1395,14 @@ public class Batcher : IDisposable
 		Matrix = was;
 	}
 
-	public void TextImageForge(in Subtexture subtex, in Vector2 position, Color color)
+	public void TextImageForge(in Subtexture subtex, in Vector2 position, Color color, float scale)
 	{
 		SetTexture(subtex.Texture);
 		Quad(
-			position + subtex.DrawCoords0,
-			position + subtex.DrawCoords1,
-			position + subtex.DrawCoords2,
-			position + subtex.DrawCoords3,
+			(position + subtex.DrawCoords0) * scale,
+			(position + subtex.DrawCoords1) * scale,
+			(position + subtex.DrawCoords2) * scale,
+			(position + subtex.DrawCoords3) * scale,
 			subtex.TexCoords3,
 			subtex.TexCoords2,
 			subtex.TexCoords1,
@@ -1416,7 +1416,7 @@ public class Batcher : IDisposable
 		TextForge(font, text, position, Vector2.Zero, color);
 	}
 
-	public void TextForge(SpriteFont font, ReadOnlySpan<char> text, Vector2 position, Vector2 justify, Color color)
+	public void TextForge(SpriteFont font, ReadOnlySpan<char> text, Vector2 position, Vector2 justify, Color color, float scale = 1.0f)
 	{
 		var at = position + new Vector2(0f, -font.Ascent);
 		var last = 0;
@@ -1454,7 +1454,7 @@ public class Batcher : IDisposable
 
 				if (ch.Subtexture.Texture != null)
 				{
-					TextImageForge(ch.Subtexture, at + ch.Offset, color);
+					TextImageForge(ch.Subtexture, at + ch.Offset, color, scale);
 				}
 
 				// TODO: Would be nice if we could also pass in a fontHeightWorld or w/e like we do Size for Sprite...
