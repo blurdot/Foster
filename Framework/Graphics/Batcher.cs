@@ -1437,7 +1437,7 @@ public class Batcher : IDisposable
 				at.X = position.X;
 				if (justify.X != 0 && i < text.Length - 1)
 					at.X -= justify.X * font.WidthOfLine(text[(i + 1)..]);
-				at.Y -= font.LineHeight;
+				at.Y -= font.LineHeight * scale;
 				last = 0;
 				continue;
 			}
