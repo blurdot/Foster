@@ -1399,10 +1399,10 @@ public class Batcher : IDisposable
 	{
 		SetTexture(subtex.Texture);
 		Quad(
-			(position + subtex.DrawCoords0) * scale,
-			(position + subtex.DrawCoords1) * scale,
-			(position + subtex.DrawCoords2) * scale,
-			(position + subtex.DrawCoords3) * scale,
+			(position + subtex.DrawCoords0 * scale),
+			(position + subtex.DrawCoords1 * scale),
+			(position + subtex.DrawCoords2 * scale),
+			(position + subtex.DrawCoords3 * scale),
 			subtex.TexCoords3,
 			subtex.TexCoords2,
 			subtex.TexCoords1,
@@ -1418,14 +1418,14 @@ public class Batcher : IDisposable
 
 	public void TextForge(SpriteFont font, ReadOnlySpan<char> text, Vector2 position, Vector2 justify, Color color, float scale = 1.0f)
 	{
-		var at = position + new Vector2(0f, -font.Ascent);
+		var at = position + new Vector2(0f, -font.Ascent * scale);
 		var last = 0;
 
 		if (justify.X != 0)
-			at.X -= justify.X * font.WidthOfLine(text);
+			at.X -= justify.X * font.WidthOfLine(text) * scale;
 
 		if (justify.Y != 0)
-			at.Y += justify.Y * font.HeightOf(text);
+			at.Y += justify.Y * font.HeightOf(text) * scale;
 
 		at.X = Calc.Round(at.X);
 		at.Y = Calc.Round(at.Y);
@@ -1436,7 +1436,7 @@ public class Batcher : IDisposable
 			{
 				at.X = position.X;
 				if (justify.X != 0 && i < text.Length - 1)
-					at.X -= justify.X * font.WidthOfLine(text[(i + 1)..]);
+					at.X -= justify.X * font.WidthOfLine(text[(i + 1)..]) * scale;
 				at.Y -= font.LineHeight * scale;
 				last = 0;
 				continue;
@@ -1446,7 +1446,7 @@ public class Batcher : IDisposable
 			{
 				if (last != 0)
 				{
-					at.X += font.GetKerning(last, ch.Codepoint);
+					at.X += font.GetKerning(last, ch.Codepoint) * scale;
 				}
 
 				float charHeight = ch.Subtexture.DrawCoords1.Y - ch.Subtexture.DrawCoords2.Y;
@@ -1454,13 +1454,13 @@ public class Batcher : IDisposable
 
 				if (ch.Subtexture.Texture != null)
 				{
-					TextImageForge(ch.Subtexture, at + ch.Offset, color, scale);
+					TextImageForge(ch.Subtexture, at + ch.Offset * scale, color, scale);
 				}
 
 				// TODO: Would be nice if we could also pass in a fontHeightWorld or w/e like we do Size for Sprite...
 
 				last = ch.Codepoint;
-				at.X += ch.Advance;
+				at.X += ch.Advance * scale;
 				i += step - 1;
 			}
 		}
