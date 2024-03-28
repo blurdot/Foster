@@ -263,10 +263,15 @@ public static class App
 	public static int MainThreadID { get; private set; }
 
 	/// <summary>
+	/// Locks Render rate to Update rate. Set this to false to run the Render loop as fast as possible.
+	/// </summary>
+	public static bool RenderRateLimited = true;
+
+	/// <summary>
 	/// Locks Render rate to Update rate. Set this to false to run the Render loop as fast as possible,
 	/// in this case, implement interpolation of drawables' game state for best results.
 	/// </summary>
-	public static bool RenderRateLimited = true;
+	public static int MSAASamples = 4;
 
 	/// <summary>
 	/// Registers a Module that will be run within the Application once it has started.
@@ -331,6 +336,7 @@ public static class App
 			height = height,
 			renderer = renderer,
 			flags = flags,
+			msaaSamples = MSAASamples
 		});
 
 		if(Platform.FosterIsRunning() == 0)

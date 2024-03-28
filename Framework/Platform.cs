@@ -47,6 +47,7 @@ internal static class Platform
 		public int height;
 		public Renderers renderer;
 		public FosterFlags flags;
+		public int msaaSamples;
 	}
 
 	[StructLayout(LayoutKind.Explicit)]

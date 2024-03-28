@@ -458,6 +458,7 @@ typedef struct FosterDesc
 	int height;
 	FosterRenderers renderer;
 	FosterFlags flags;
+	int msaaSamples;
 } FosterDesc;
 
 typedef union FosterEvent
