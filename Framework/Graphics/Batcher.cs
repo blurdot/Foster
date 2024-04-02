@@ -1386,10 +1386,12 @@ public class Batcher : IDisposable
 			new Vector2(sizeInWorldUnits.X, 0f),
 			new Vector2(sizeInWorldUnits.X, sizeInWorldUnits.Y),
 			new Vector2(0f, sizeInWorldUnits.Y),
-			new Vector2(0, 0),
-			Vector2.UnitX,
+
+			// Flipped Y
+			new Vector2(0, 1),
 			new Vector2(1, 1),
-			Vector2.UnitY,
+			new Vector2(1, 0),
+			new Vector2(0, 0),
 			color);
 
 		Matrix = was;
