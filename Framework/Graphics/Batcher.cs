@@ -1373,7 +1373,61 @@ public class Batcher : IDisposable
 
 	#region Forge
 
-	public void ImageForge(Texture texture, ref Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Color color)
+	public void ImageForge(Texture texture, Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Vector2 pivot, Color color)
+	{
+		var was = Matrix;
+
+		// Adjust based on pivot
+		/*
+		var translation = modelMatrix.Translation;
+		modelMatrix.M31 = 0f;
+		modelMatrix.M32 = 0f;
+		Vector2 pivotAdj = new Vector2(
+			pivot.X * sizeInWorldUnits.X * 75f,
+			pivot.Y * sizeInWorldUnits.Y * 75f
+		);
+		translation -= pivotAdj;
+		modelMatrix = modelMatrix * Matrix3x2.CreateTranslation(translation);
+		*/
+
+		Vector2 pivotAdj = new Vector2(
+			pivot.X * sizeInWorldUnits.X,
+			pivot.Y * sizeInWorldUnits.Y
+		);
+
+		Vector2 bottomLeft = new Vector2(0f, 0f) - pivotAdj;
+		Vector2 bottomRight = new Vector2(sizeInWorldUnits.X, 0f) - pivotAdj;
+		Vector2 topRight = new Vector2(sizeInWorldUnits.X, sizeInWorldUnits.Y) - pivotAdj;
+		Vector2 topLeft = new Vector2(0f, sizeInWorldUnits.Y) - pivotAdj;
+
+		Matrix = modelMatrix * Matrix;
+
+		SetTexture(texture);
+
+		Quad(
+			/*
+			Vector2.Zero,
+			new Vector2(sizeInWorldUnits.X, 0f),
+			new Vector2(sizeInWorldUnits.X, sizeInWorldUnits.Y),
+			new Vector2(0f, sizeInWorldUnits.Y),
+			*/
+
+			bottomLeft,
+			bottomRight,
+			topRight,
+			topLeft,
+
+			// Flipped Y
+			new Vector2(0, 1),
+			new Vector2(1, 1),
+			new Vector2(1, 0),
+			new Vector2(0, 0),
+			color);
+
+		Matrix = was;
+	}
+
+	public void ParticleForge(Texture texture, ref Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Color color)
 	{
 		var was = Matrix;
 
