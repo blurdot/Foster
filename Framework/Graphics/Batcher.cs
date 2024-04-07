@@ -14,10 +14,12 @@ public class Batcher : IDisposable
 	/// Vertex Format of Batcher.Vertex
 	/// </summary>
 	private static readonly VertexFormat VertexFormat = VertexFormat.Create<Vertex>(
-		new VertexFormat.Element(0, VertexType.Float2, false),
-		new VertexFormat.Element(1, VertexType.Float2, false),
-		new VertexFormat.Element(2, VertexType.UByte4, true),
-		new VertexFormat.Element(3, VertexType.UByte4, true)
+		new VertexFormat.Element(0, VertexType.Float2, false),	// Pos
+		new VertexFormat.Element(1, VertexType.Float2, false),	// UV
+		new VertexFormat.Element(2, VertexType.UByte4, true),	// Color
+		new VertexFormat.Element(3, VertexType.UByte4, true),	// Mode
+		new VertexFormat.Element(4, VertexType.UByte4, true),	// OptionalColor0
+		new VertexFormat.Element(5, VertexType.UByte4, true)	// OptionalColor1
 	);
 
 	/// <summary>
@@ -30,6 +32,8 @@ public class Batcher : IDisposable
 		public Vector2 Tex = texcoord;
 		public Color Col = color;
 		public Color Mode = mode;  // R = Multiply, G = Wash, B = Fill, A = Padding
+		public Color OptCol0 = Color.Transparent;
+		public Color OptCol1 = Color.Transparent;
 
 		public readonly VertexFormat Format => VertexFormat;
 	}
@@ -695,12 +699,20 @@ public class Batcher : IDisposable
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
 			vertexArray[3].Mode = mode;
+			vertexArray[0].OptCol0 = default;
+			vertexArray[1].OptCol0 = default;
+			vertexArray[2].OptCol0 = default;
+			vertexArray[3].OptCol0 = default;
+			vertexArray[0].OptCol1 = default;
+			vertexArray[1].OptCol1 = default;
+			vertexArray[2].OptCol1 = default;
+			vertexArray[3].OptCol1 = default;
 		}
 
 		vertexCount += 4;
 	}
 
-	public void Quad(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, in Color color)
+	public void Quad(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, in Color color, Color optColor0 = default, Color optColor1 = default)
 	{
 		PushQuad();
 		EnsureVertexCapacity(vertexCount + 4);
@@ -725,6 +737,14 @@ public class Batcher : IDisposable
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
 			vertexArray[3].Mode = mode;
+			vertexArray[0].OptCol0 = optColor0;
+			vertexArray[1].OptCol0 = optColor0;
+			vertexArray[2].OptCol0 = optColor0;
+			vertexArray[3].OptCol0 = optColor0;
+			vertexArray[0].OptCol1 = optColor1;
+			vertexArray[1].OptCol1 = optColor1;
+			vertexArray[2].OptCol1 = optColor1;
+			vertexArray[3].OptCol1 = optColor1;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 4);
@@ -755,6 +775,14 @@ public class Batcher : IDisposable
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
 			vertexArray[3].Mode = mode;
+			vertexArray[0].OptCol0 = default;
+			vertexArray[1].OptCol0 = default;
+			vertexArray[2].OptCol0 = default;
+			vertexArray[3].OptCol0 = default;
+			vertexArray[0].OptCol1 = default;
+			vertexArray[1].OptCol1 = default;
+			vertexArray[2].OptCol1 = default;
+			vertexArray[3].OptCol1 = default;
 		}
 
 		vertexCount += 4;
@@ -785,6 +813,14 @@ public class Batcher : IDisposable
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
 			vertexArray[3].Mode = mode;
+			vertexArray[0].OptCol0 = default;
+			vertexArray[1].OptCol0 = default;
+			vertexArray[2].OptCol0 = default;
+			vertexArray[3].OptCol0 = default;
+			vertexArray[0].OptCol1 = default;
+			vertexArray[1].OptCol1 = default;
+			vertexArray[2].OptCol1 = default;
+			vertexArray[3].OptCol1 = default;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 4);
@@ -828,6 +864,12 @@ public class Batcher : IDisposable
 			vertexArray[0].Mode = mode;
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
+			vertexArray[0].OptCol0 = default;
+			vertexArray[1].OptCol0 = default;
+			vertexArray[2].OptCol0 = default;
+			vertexArray[0].OptCol1 = default;
+			vertexArray[1].OptCol1 = default;
+			vertexArray[2].OptCol1 = default;
 		}
 
 		vertexCount += 3;
@@ -854,6 +896,12 @@ public class Batcher : IDisposable
 			vertexArray[0].Mode = mode;
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
+			vertexArray[0].OptCol0 = default;
+			vertexArray[1].OptCol0 = default;
+			vertexArray[2].OptCol0 = default;
+			vertexArray[0].OptCol1 = default;
+			vertexArray[1].OptCol1 = default;
+			vertexArray[2].OptCol1 = default;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 3);
@@ -881,6 +929,12 @@ public class Batcher : IDisposable
 			vertexArray[0].Mode = mode;
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
+			vertexArray[0].OptCol0 = default;
+			vertexArray[1].OptCol0 = default;
+			vertexArray[2].OptCol0 = default;
+			vertexArray[0].OptCol1 = default;
+			vertexArray[1].OptCol1 = default;
+			vertexArray[2].OptCol1 = default;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 3);
@@ -1373,22 +1427,9 @@ public class Batcher : IDisposable
 
 	#region Forge
 
-	public void ImageForge(Texture texture, Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Vector2 pivot, Color color)
+	public void ImageForge(Texture texture, Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Vector2 pivot, Color color, Color optColor0 = default, Color optColor1 = default)
 	{
 		var was = Matrix;
-
-		// Adjust based on pivot
-		/*
-		var translation = modelMatrix.Translation;
-		modelMatrix.M31 = 0f;
-		modelMatrix.M32 = 0f;
-		Vector2 pivotAdj = new Vector2(
-			pivot.X * sizeInWorldUnits.X * 75f,
-			pivot.Y * sizeInWorldUnits.Y * 75f
-		);
-		translation -= pivotAdj;
-		modelMatrix = modelMatrix * Matrix3x2.CreateTranslation(translation);
-		*/
 
 		Vector2 pivotAdj = new Vector2(
 			pivot.X * sizeInWorldUnits.X,
@@ -1422,7 +1463,10 @@ public class Batcher : IDisposable
 			new Vector2(1, 1),
 			new Vector2(1, 0),
 			new Vector2(0, 0),
-			color);
+			color,
+			optColor0,
+			optColor1
+			);
 
 		Matrix = was;
 	}
