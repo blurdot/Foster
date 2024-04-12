@@ -478,6 +478,8 @@ typedef union FosterEvent
 		int eventType;
 		float x;
 		float y;
+		float deltaX;
+		float deltaY;
 		int button;
 		FosterBool buttonPressed;
 	} mouse;
