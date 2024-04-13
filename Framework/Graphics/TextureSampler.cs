@@ -9,9 +9,14 @@ public readonly struct TextureSampler : IEquatable<TextureSampler>
 	public readonly TextureWrap WrapX;
 	public readonly TextureWrap WrapY;
 
+	public TextureSampler()
+	{
+		this.Filter = TextureFilter.LinearMipmapLinear;
+	}
+
 	public TextureSampler(TextureFilter filter, TextureWrap wrapX, TextureWrap wrapY)
 	{
-		Filter = filter;
+		Filter = TextureFilter.LinearMipmapLinear;
 		WrapX = wrapX;
 		WrapY = wrapY;
 	}
