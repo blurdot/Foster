@@ -224,6 +224,7 @@ typedef char             GLchar;
 #define GL_DEBUG_OUTPUT_SYNCHRONOUS 0x8242
 #define GL_COMPILE_STATUS 0x8B81
 #define GL_LINK_STATUS 0x8B82
+#define GL_UNIFORM_BUFFER 0x8A11
 
 // OpenGL Functions
 #define GL_FUNCTIONS \
@@ -260,6 +261,7 @@ typedef char             GLchar;
 	GL_FUNC(FramebufferRenderbuffer, void, GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) \
 	GL_FUNC(FramebufferTexture2D, void, GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) \
 	GL_FUNC(TexParameteri, void, GLenum target, GLenum name, GLint param) \
+	GL_FUNC(TexParameterf, void, GLenum target, GLenum name, GLfloat param) \
 	GL_FUNC(RenderbufferStorage, void, GLenum target, GLenum internalformat, GLint width, GLint height) \
 	GL_FUNC(GetTexImage, void, GLenum target, GLint level, GLenum format, GLenum type, void* data) \
 	GL_FUNC(DrawElements, void, GLenum mode, GLint count, GLenum type, void* indices) \
@@ -272,6 +274,7 @@ typedef char             GLchar;
 	GL_FUNC(BindVertexArray, void, GLuint id) \
 	GL_FUNC(GenBuffers, void, GLint n, GLuint* arrays) \
 	GL_FUNC(BindBuffer, void, GLenum target, GLuint buffer) \
+	GL_FUNC(BindBufferRange, void, GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size) \
 	GL_FUNC(BufferData, void, GLenum target, GLsizeiptr size, const void* data, GLenum usage) \
 	GL_FUNC(BufferSubData, void, GLenum target, GLintptr offset, GLsizeiptr size, const void* data) \
 	GL_FUNC(DeleteBuffers, void, GLint n, GLuint* buffers) \
@@ -782,7 +785,7 @@ void FosterSetTextureSampler(FosterTexture_OpenGL* tex, FosterTextureSampler sam
 
 			if (sampler.filter > 1)
 			{
-				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -1); // TODO: This helps mipmaps not look so blurry?
+				fgl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5); // TODO: This helps mipmaps not look so blurry?
 				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
 				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 20);
 				fgl.glGenerateMipmap(GL_TEXTURE_2D);
@@ -1524,6 +1527,37 @@ void FosterShaderSetUniform_OpenGL(FosterShader* shader, int index, float* value
 	FOSTER_LOG_ERROR("Failed to set uniform '%s', unsupported type '%i'", uniform->name, uniform->glType);
 }
 
+// void (*createConstBuffer)(void* bufferPtr, int slot, int sizeBytes);
+// void (*setConstBufferSubData)(void* bufferPtr, int offset, int sizeBytes);
+
+void FosterCreateConstBuffer_OpenGL(unsigned int bufferPtr, int slot, int sizeBytes)
+{
+	fgl.glGenBuffers(1, &bufferPtr);
+	fgl.glBindBuffer(GL_UNIFORM_BUFFER, bufferPtr);
+	fgl.glBufferData(GL_UNIFORM_BUFFER, sizeBytes, NULL, GL_STATIC_DRAW);
+	fgl.glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	FOSTER_LOG_INFO("Created const buffer ptr:%i, slot:%i, sizeBytes:%i", bufferPtr, slot, sizeBytes);
+}
+
+void FosterSetConstBufferSubData_OpenGL(unsigned int bufferPtr, int offset, int sizeBytes, void* dataPtr)
+{
+	float alpha = 0.5;
+	float* alphaPtr = &alpha;
+
+	fgl.glGenBuffers(1, &bufferPtr);
+	fgl.glBindBuffer(GL_UNIFORM_BUFFER, bufferPtr);
+	fgl.glBufferData(GL_UNIFORM_BUFFER, sizeBytes, NULL, GL_STATIC_DRAW);
+	fgl.glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	fgl.glBindBufferRange(GL_UNIFORM_BUFFER, 3, bufferPtr, 0, sizeBytes);
+
+	fgl.glBindBuffer(GL_UNIFORM_BUFFER, bufferPtr);
+	fgl.glBufferSubData(GL_UNIFORM_BUFFER, 0, 4, alphaPtr);
+	fgl.glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+	FOSTER_LOG_INFO("Set const buffer data, ptr:%i, dataPtr:%i, offset:%i, sizeBytes:%i", bufferPtr, (int*)dataPtr, offset, sizeBytes);
+}
+
 void FosterShaderSetTexture_OpenGL(FosterShader* shader, int index, FosterTexture** values)
 {
 	FosterShader_OpenGL* it = (FosterShader_OpenGL*)shader;
@@ -1859,6 +1893,8 @@ bool FosterGetDevice_OpenGL(FosterRenderDevice* device)
 	device->meshSetIndexFormat = FosterMeshSetIndexFormat_OpenGL;
 	device->meshSetIndexData = FosterMeshSetIndexData_OpenGL;
 	device->meshDestroy = FosterMeshDestroy_OpenGL;
+	device->createConstBuffer = FosterCreateConstBuffer_OpenGL;
+	device->setConstBufferSubData = FosterSetConstBufferSubData_OpenGL;
 	device->draw = FosterDraw_OpenGL;
 	device->clear = FosterClear_OpenGL;
 	return true;

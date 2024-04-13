@@ -644,6 +644,18 @@ void FosterShaderSetUniform(FosterShader* shader, int index, float* values)
 	fstate.device.shaderSetUniform(shader, index, values);
 }
 
+void FosterCreateConstBuffer(unsigned int bufferPtr, int slot, int sizeBytes)
+{
+	FOSTER_ASSERT_RUNNING(FosterCreateConstBuffer);
+	fstate.device.createConstBuffer(bufferPtr, slot, sizeBytes);
+}
+
+void FosterSetConstBufferSubData(unsigned int bufferPtr, int offset, int sizeBytes, void* dataPtr)
+{
+	FOSTER_ASSERT_RUNNING(FosterSetConstBufferSubData);
+	fstate.device.setConstBufferSubData(bufferPtr, offset, sizeBytes, dataPtr);
+}
+
 void FosterShaderSetTexture(FosterShader* shader, int index, FosterTexture** values)
 {
 	FOSTER_ASSERT_RUNNING(FosterShaderSetTexture);

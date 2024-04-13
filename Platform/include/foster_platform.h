@@ -679,6 +679,10 @@ FOSTER_API void FosterShaderGetUniforms(FosterShader* shader, FosterUniformInfo*
 
 FOSTER_API void FosterShaderSetUniform(FosterShader* shader, int index, float* values);
 
+FOSTER_API void FosterCreateConstBuffer(unsigned int bufferPtr, int slot, int sizeBytes);
+
+FOSTER_API void FosterSetConstBufferSubData(unsigned int bufferPtr, int offset, int sizeBytes, void* dataPtr);
+
 FOSTER_API void FosterShaderSetTexture(FosterShader* shader, int index, FosterTexture** values);
 
 FOSTER_API void FosterShaderSetSampler(FosterShader* shader, int index, FosterTextureSampler* values);

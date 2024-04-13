@@ -37,6 +37,8 @@ typedef struct FosterRenderDevice
 	void (*meshSetIndexData)(FosterMesh* mesh, void* data, int dataSize, int dataDestOffset);
 	void (*meshDestroy)(FosterMesh* mesh);
 
+	void (*createConstBuffer)(unsigned int bufferPtr, int slot, int sizeBytes);
+	void (*setConstBufferSubData)(unsigned int bufferPtr, int offset, int sizeBytes, void* dataPtr);
 	void (*draw)(FosterDrawCommand* command);
 	void (*clear)(FosterClearCommand* clear);
 } FosterRenderDevice;

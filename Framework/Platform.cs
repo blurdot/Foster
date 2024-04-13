@@ -288,6 +288,10 @@ internal static partial class Platform
 	[LibraryImport(DLL)]
 	public static unsafe partial void FosterShaderSetUniform(IntPtr shader, int index, float* values);
 	[LibraryImport(DLL)]
+	public static unsafe partial void FosterCreateConstBuffer(uint bufferPtr, int slot, int sizeBytes);
+	[LibraryImport(DLL)]
+	public static unsafe partial void FosterSetConstBufferSubData(uint bufferPtr, int offset, int sizeBytes, IntPtr data);
+	[LibraryImport(DLL)]
 	public static unsafe partial void FosterShaderSetTexture(IntPtr shader, int index, IntPtr* values);
 	[LibraryImport(DLL)]
 	public static unsafe partial void FosterShaderSetSampler(IntPtr shader, int index, TextureSampler* values);

@@ -137,6 +137,17 @@ public class Batcher : IDisposable
 		DefaultShader = defaultShader;
 		defaultMaterialState = new(new Material(DefaultShader), "u_matrix", "u_texture", "u_texture_sampler");
 		Clear();
+
+		uint bufferPtr = 0;
+		Platform.FosterCreateConstBuffer(bufferPtr, 0, 4);
+
+		unsafe
+		{
+			// NOTE: Would like to not have to bind the shader specifically, but have a global uniform I can access at binding=0 or /we
+			float alpha = 1.0f;
+			var handle = GCHandle.Alloc(alpha, GCHandleType.Pinned);
+			Platform.FosterSetConstBufferSubData(bufferPtr, 0, 4, handle.AddrOfPinnedObject());
+		}
 	}
 
 	public Batcher()
