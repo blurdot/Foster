@@ -267,10 +267,6 @@ public static class App
 	/// </summary>
 	public static bool RenderRateLimited = true;
 
-	/// <summary>
-	/// Locks Render rate to Update rate. Set this to false to run the Render loop as fast as possible,
-	/// in this case, implement interpolation of drawables' game state for best results.
-	/// </summary>
 	public static int MSAASamples = 4;
 
 	/// <summary>
