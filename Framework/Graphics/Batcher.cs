@@ -103,7 +103,8 @@ public class Batcher : IDisposable
 		Material Material,
 		string MatrixUniform,
 		string TextureUniform,
-		string SamplerUniform
+		string SamplerUniform,
+		string GlobalColorsUniform
 	);
 
 	private struct Batch
@@ -135,7 +136,15 @@ public class Batcher : IDisposable
 	public Batcher(Shader defaultShader)
 	{
 		DefaultShader = defaultShader;
-		defaultMaterialState = new(new Material(DefaultShader), "u_matrix", "u_texture", "u_texture_sampler");
+
+		Material material = new Material(DefaultShader);
+
+		defaultMaterialState = new(material, "u_matrix", "u_texture", "u_texture_sampler", "u_global_colors");
+
+		// TODO: globalColors should be static somewhere...
+		Span<Color> globalColors = [Color.Red, Color.Blue];
+		material.Set(defaultMaterialState.GlobalColorsUniform, globalColors);
+
 		Clear();
 	}
 
@@ -143,7 +152,15 @@ public class Batcher : IDisposable
 	{
 		if (DefaultShader == null || DefaultShader.IsDisposed)
 			DefaultShader = new Shader(ShaderDefaults.Batcher[Graphics.Renderer]);
-		defaultMaterialState = new(new Material(DefaultShader), "u_matrix", "u_texture", "u_texture_sampler");
+
+		Material material = new Material(DefaultShader);
+
+		defaultMaterialState = new(material, "u_matrix", "u_texture", "u_texture_sampler", "u_global_colors");
+
+		// TODO: globalColors should be static somewhere...
+		Span<Color> globalColors = [Color.Red, Color.Blue];
+		material.Set(defaultMaterialState.GlobalColorsUniform, globalColors);
+
 		Clear();
 	}
 
@@ -439,7 +456,8 @@ public class Batcher : IDisposable
 		PushMaterial(material, 
 			defaultMaterialState.MatrixUniform, 
 			defaultMaterialState.TextureUniform, 
-			defaultMaterialState.SamplerUniform
+			defaultMaterialState.SamplerUniform,
+			defaultMaterialState.GlobalColorsUniform
 		);
 	}
 
@@ -448,7 +466,7 @@ public class Batcher : IDisposable
 	/// This clones the state of the Material, so changing it after pushing it
 	/// will not have an effect on the resulting draw.
 	/// </summary>
-	public void PushMaterial(Material material, string matrixUniform, string textureUniform, string samplerUniform)
+	public void PushMaterial(Material material, string matrixUniform, string textureUniform, string samplerUniform, string globalColorsUniform)
 	{
 		materialStack.Push(currentBatch.MaterialState);
 
@@ -462,7 +480,7 @@ public class Batcher : IDisposable
 
 		// copy the values to our internal material & set it
 		material.CopyTo(copy);
-		SetMaterial(new(copy, matrixUniform, textureUniform, samplerUniform));
+		SetMaterial(new(copy, matrixUniform, textureUniform, samplerUniform, globalColorsUniform));
 	}
 
 	/// <summary>
