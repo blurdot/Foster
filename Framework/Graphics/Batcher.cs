@@ -1,7 +1,6 @@
-using System.Diagnostics;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Numerics;
 
 namespace Foster.Framework;
 
@@ -132,22 +131,95 @@ public class Batcher : IDisposable
 		}
 	}
 
+	[System.Runtime.CompilerServices.InlineArray(32)]
+	public unsafe record struct BufferFloat_32
+	{
+		public void SetColor(int index, Color color)
+		{
+			this[index] = (float)(color.R / 255f);
+			this[index + 1] = (float)(color.G / 255f);
+			this[index + 2] = (float)(color.B / 255f);
+			this[index + 3] = (float)(color.A / 255f);
+		}
+
+		public Color GetColor(int index)
+		{
+			Color color = new Color(this[index], this[index + 1], this[index + 2], this[index + 3]);
+			return color;
+		}
+
+		public void Set<T>(int index, T val) where T : struct
+		{
+			if (Marshal.SizeOf<T>() > sizeof(float))
+			{
+				throw new Exception("Only 4-byte values allowed");
+			}
+
+			T* valPtr = &val;
+			ReadOnlySpan<T> valSpan = new ReadOnlySpan<T>(valPtr, 1);
+			ReadOnlySpan<float> floatSpan = MemoryMarshal.Cast<T, float>(valSpan);
+			this[index] = floatSpan[0];
+		}
+
+		public T Get<T>(int index) where T : struct
+		{
+			if (Marshal.SizeOf<T>() > sizeof(float))
+			{
+				throw new Exception("Only 4-byte values allowed");
+			}
+
+			fixed (float* ptr = &this[index])
+			{
+				ReadOnlySpan<T> valSpan = new ReadOnlySpan<T>((T*)ptr, 1);
+				return valSpan[0];
+			}
+		}
+
+		public IntPtr Ptr {
+			get
+			{
+				ref float refElement0 = ref _element0;
+				fixed (float* ptr = &refElement0)
+				{
+					return (IntPtr)ptr;
+				}
+			}
+		}
+
+		private float _element0;
+
+	}
+
 	public Batcher(Shader defaultShader)
 	{
 		DefaultShader = defaultShader;
 		defaultMaterialState = new(new Material(DefaultShader), "u_matrix", "u_texture", "u_texture_sampler");
 		Clear();
 
-		uint bufferPtr = 0;
-		Platform.FosterCreateConstBuffer(bufferPtr, 0, 4);
+		BufferFloat_32 buffer = new BufferFloat_32();
+		//buffer.SetColor(0, Color.Red);
+		//buffer.SetColor(0, new Color(50, 50, 50, 10));
 
+		buffer.Set(0, 1.0f);
+		buffer.Set(1, 1.0f);
+		buffer.Set(2, 1.0f);
+		buffer.Set(0, 0.5f);
+
+		Console.WriteLine($"TrySetColor: {buffer.GetColor(0)}");
+
+		uint bufferPtr = Platform.FosterCreateConstBuffer(slot: 0, sizeBytes: Marshal.SizeOf<BufferFloat_32>());
+
+		/*
 		unsafe
 		{
 			// NOTE: Would like to not have to bind the shader specifically, but have a global uniform I can access at binding=0 or /we
-			float alpha = 1.0f;
+			float alpha = 0.5f;
 			var handle = GCHandle.Alloc(alpha, GCHandleType.Pinned);
-			Platform.FosterSetConstBufferSubData(bufferPtr, 0, 4, handle.AddrOfPinnedObject());
+			Platform.FosterSetConstBufferSubData(bufferPtr, offset: 0, sizeBytes: 4, handle.AddrOfPinnedObject());
 		}
+		*/
+
+		Platform.FosterSetConstBufferSubData(bufferPtr, offset: 0, sizeBytes: Marshal.SizeOf<BufferFloat_32>(), buffer.Ptr);
 	}
 
 	public Batcher()

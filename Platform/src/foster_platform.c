@@ -644,10 +644,10 @@ void FosterShaderSetUniform(FosterShader* shader, int index, float* values)
 	fstate.device.shaderSetUniform(shader, index, values);
 }
 
-void FosterCreateConstBuffer(unsigned int bufferPtr, int slot, int sizeBytes)
+unsigned int FosterCreateConstBuffer(int slot, int sizeBytes)
 {
-	FOSTER_ASSERT_RUNNING(FosterCreateConstBuffer);
-	fstate.device.createConstBuffer(bufferPtr, slot, sizeBytes);
+	FOSTER_ASSERT_RUNNING_RET(FosterCreateConstBuffer, 0);
+	return fstate.device.createConstBuffer(slot, sizeBytes);
 }
 
 void FosterSetConstBufferSubData(unsigned int bufferPtr, int offset, int sizeBytes, void* dataPtr)

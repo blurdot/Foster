@@ -1530,29 +1530,25 @@ void FosterShaderSetUniform_OpenGL(FosterShader* shader, int index, float* value
 // void (*createConstBuffer)(void* bufferPtr, int slot, int sizeBytes);
 // void (*setConstBufferSubData)(void* bufferPtr, int offset, int sizeBytes);
 
-void FosterCreateConstBuffer_OpenGL(unsigned int bufferPtr, int slot, int sizeBytes)
+unsigned int FosterCreateConstBuffer_OpenGL(int slot, int sizeBytes)
 {
+	unsigned int bufferPtr;
+
 	fgl.glGenBuffers(1, &bufferPtr);
 	fgl.glBindBuffer(GL_UNIFORM_BUFFER, bufferPtr);
 	fgl.glBufferData(GL_UNIFORM_BUFFER, sizeBytes, NULL, GL_STATIC_DRAW);
+	fgl.glBindBufferRange(GL_UNIFORM_BUFFER, slot, bufferPtr, 0, sizeBytes);
 	fgl.glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	FOSTER_LOG_INFO("Created const buffer ptr:%i, slot:%i, sizeBytes:%i", bufferPtr, slot, sizeBytes);
+
+	return bufferPtr;
 }
 
 void FosterSetConstBufferSubData_OpenGL(unsigned int bufferPtr, int offset, int sizeBytes, void* dataPtr)
 {
-	float alpha = 0.5;
-	float* alphaPtr = &alpha;
-
-	fgl.glGenBuffers(1, &bufferPtr);
 	fgl.glBindBuffer(GL_UNIFORM_BUFFER, bufferPtr);
-	fgl.glBufferData(GL_UNIFORM_BUFFER, sizeBytes, NULL, GL_STATIC_DRAW);
-	fgl.glBindBuffer(GL_UNIFORM_BUFFER, 0);
-	fgl.glBindBufferRange(GL_UNIFORM_BUFFER, 3, bufferPtr, 0, sizeBytes);
-
-	fgl.glBindBuffer(GL_UNIFORM_BUFFER, bufferPtr);
-	fgl.glBufferSubData(GL_UNIFORM_BUFFER, 0, 4, alphaPtr);
+	fgl.glBufferSubData(GL_UNIFORM_BUFFER, offset, sizeBytes, dataPtr);
 	fgl.glBindBuffer(GL_UNIFORM_BUFFER, 0);
 
 	FOSTER_LOG_INFO("Set const buffer data, ptr:%i, dataPtr:%i, offset:%i, sizeBytes:%i", bufferPtr, (int*)dataPtr, offset, sizeBytes);
