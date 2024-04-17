@@ -162,6 +162,7 @@ typedef char             GLchar;
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
 #define GL_TEXTURE_BASE_LEVEL 0x813C
 #define GL_TEXTURE_MAX_LEVEL 0x813D
+#define GL_TEXTURE_MAX_ANISOTROPY 0x84FE
 #define GL_TEXTURE_LOD_BIAS 0x8501
 #define GL_PACK_ALIGNMENT 0x0D05
 #define GL_UNPACK_ALIGNMENT 0x0CF5
@@ -260,6 +261,7 @@ typedef char             GLchar;
 	GL_FUNC(FramebufferRenderbuffer, void, GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) \
 	GL_FUNC(FramebufferTexture2D, void, GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level) \
 	GL_FUNC(TexParameteri, void, GLenum target, GLenum name, GLint param) \
+	GL_FUNC(TexParameterf, void, GLenum target, GLenum name, GLfloat param) \
 	GL_FUNC(RenderbufferStorage, void, GLenum target, GLenum internalformat, GLint width, GLint height) \
 	GL_FUNC(GetTexImage, void, GLenum target, GLint level, GLenum format, GLenum type, void* data) \
 	GL_FUNC(DrawElements, void, GLenum mode, GLint count, GLenum type, void* indices) \
@@ -779,12 +781,13 @@ void FosterSetTextureSampler(FosterTexture_OpenGL* tex, FosterTextureSampler sam
 		{
 			fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, FosterFilterToGL(sampler.filter));
 			fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 8);
 
 			if (sampler.filter > 1)
 			{
-				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -1); // TODO: This helps mipmaps not look so blurry?
+				fgl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5); // TODO: This helps mipmaps not look so blurry?
 				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 20);
+				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 1000);
 				fgl.glGenerateMipmap(GL_TEXTURE_2D);
 			}
 		}
@@ -1167,12 +1170,6 @@ FosterTexture* FosterTextureCreate_OpenGL(int width, int height, FosterTextureFo
 
 	FosterBindTexture(0, result.id);
 	fgl.glTexImage2D(GL_TEXTURE_2D, 0, result.glInternalFormat, width, height, 0, result.glFormat, result.glType, NULL);
-
-	//fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 2);
-	//fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 4);
-	//fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	//fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-	//fgl.glGenerateMipmap(GL_TEXTURE_2D);
 
 	tex = (FosterTexture_OpenGL*)SDL_malloc(sizeof(FosterTexture_OpenGL));
 	*tex = result;

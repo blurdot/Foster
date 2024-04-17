@@ -142,7 +142,7 @@ public class Batcher : IDisposable
 		defaultMaterialState = new(material, "u_matrix", "u_texture", "u_texture_sampler", "u_global_colors");
 
 		// TODO: globalColors should be static somewhere...
-		Span<Color> globalColors = [Color.Red, Color.Blue];
+		Span<Color> globalColors = [new Color(0.7f, 0.1f, 0.1f, 1f), new Color(0f, 1f, 0f, 0f)];
 		material.Set(defaultMaterialState.GlobalColorsUniform, globalColors);
 
 		Clear();

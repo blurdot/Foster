@@ -12,6 +12,8 @@ public readonly struct TextureSampler : IEquatable<TextureSampler>
 	public TextureSampler()
 	{
 		this.Filter = TextureFilter.LinearMipmapLinear;
+		this.WrapX = TextureWrap.ClampToEdge;
+		this.WrapY = TextureWrap.ClampToEdge;
 	}
 
 	public TextureSampler(TextureFilter filter, TextureWrap wrapX, TextureWrap wrapY)
