@@ -142,7 +142,7 @@ public class Batcher : IDisposable
 		defaultMaterialState = new(material, "u_matrix", "u_texture", "u_texture_sampler", "u_global_colors");
 
 		// TODO: globalColors should be static somewhere...
-		Span<Color> globalColors = [new Color(0.7f, 0.1f, 0.1f, 1f), new Color(0f, 1f, 0f, 0f)];
+		Span<Color> globalColors = [new Color(0.7f, 0.1f, 0.1f, 0f), new Color(0f, 1f, 0f, 0f)];
 		material.Set(defaultMaterialState.GlobalColorsUniform, globalColors);
 
 		Clear();
@@ -1545,8 +1545,8 @@ public class Batcher : IDisposable
 		if (justify.Y != 0)
 			at.Y += justify.Y * font.HeightOf(text) * scale;
 
-		at.X = Calc.Round(at.X);
-		at.Y = Calc.Round(at.Y);
+		//at.X = Calc.Round(at.X);
+		//at.Y = Calc.Round(at.Y);
 
 		for (int i = 0; i < text.Length; i++)
 		{
