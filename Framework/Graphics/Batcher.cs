@@ -75,6 +75,7 @@ public class Batcher : IDisposable
 	public int BatchCount => batches.Count + (currentBatch.Elements > 0 ? 1 : 0);
 
 	private readonly MaterialState defaultMaterialState = new();
+	private readonly Material defaultMaterial = new();
 	private readonly Stack<Matrix3x2> matrixStack = new();
 	private readonly Stack<RectInt?> scissorStack = new();
 	private readonly Stack<BlendMode> blendStack = new();
@@ -281,6 +282,11 @@ public class Batcher : IDisposable
 			mesh.SetVertices(vertexPtr, vertexCount, VertexFormat);
 			dirty = false;
 		}
+
+		// make sure default shader and material are valid
+		if (DefaultShader == null || DefaultShader.IsDisposed)
+			DefaultShader = new Shader(ShaderDefaults.Batcher[Graphics.Renderer]);
+		defaultMaterial.SetShader(DefaultShader);
 
 		// render batches
 		for (int i = 0; i < batches.Count; i++)
