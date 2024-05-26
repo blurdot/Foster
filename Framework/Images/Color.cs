@@ -303,10 +303,10 @@ public struct Color : IEquatable<Color>
 	public static Color operator *(Color value, float scaler)
 	{
 		return new Color(
-			(byte)(value.R * scaler),
-			(byte)(value.G * scaler),
-			(byte)(value.B * scaler),
-			(byte)(value.A * scaler)
+			(byte)Math.Clamp(value.R * scaler, 0, 255),
+			(byte)Math.Clamp(value.G * scaler, 0, 255),
+			(byte)Math.Clamp(value.B * scaler, 0, 255),
+			(byte)Math.Clamp(value.A * scaler, 0, 255)
 		);
 	}
 

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Numerics;
@@ -10,30 +9,32 @@ public class Batcher : IDisposable
 	public static Color Mode = new(255, 0, 0, 0);
 	public static bool FlipVerticalUV;
 
+	public Action OnSubmit;
+
 	/// <summary>
 	/// Vertex Format of Batcher.Vertex
 	/// </summary>
 	private static readonly VertexFormat VertexFormat = VertexFormat.Create<Vertex>(
 		new VertexFormat.Element(0, VertexType.Float2, false),	// Pos
-		new VertexFormat.Element(1, VertexType.Float2, false),	// UV
-		new VertexFormat.Element(2, VertexType.UByte4, true),	// Color
-		new VertexFormat.Element(3, VertexType.UByte4, true),	// Mode
-		new VertexFormat.Element(4, VertexType.UByte4, true),	// OptionalColor0
-		new VertexFormat.Element(5, VertexType.UByte4, true)	// OptionalColor1
+		new VertexFormat.Element(1, VertexType.Float2, false),  // UV
+		new VertexFormat.Element(2, VertexType.Float, false),	// TexSlot
+		new VertexFormat.Element(3, VertexType.UByte4, true),	// Color
+		new VertexFormat.Element(4, VertexType.UByte4, true),	// Mode
+		new VertexFormat.Element(5, VertexType.UByte4, true)	// OptionalColor0
 	);
 
 	/// <summary>
 	/// The Vertex Layout used for Sprite Batching
 	/// </summary>
 	[StructLayout(LayoutKind.Sequential, Pack = 1)]
-	public struct Vertex(Vector2 position, Vector2 texcoord, Color color, Color mode) : IVertex
+	public struct Vertex(Vector2 position, Vector2 texcoord, float texSlot, Color color, Color mode) : IVertex
 	{
 		public Vector2 Pos = position;
 		public Vector2 Tex = texcoord;
+		public float TexSlot = texSlot;
 		public Color Col = color;
 		public Color Mode = mode;  // R = Multiply, G = Wash, B = Fill, A = Padding
 		public Color OptCol0 = Color.Transparent;
-		public Color OptCol1 = Color.Transparent;
 
 		public readonly VertexFormat Format => VertexFormat;
 	}
@@ -107,12 +108,19 @@ public class Batcher : IDisposable
 		string GlobalColorsUniform
 	);
 
+	[InlineArray(32)]
+	public struct TextureResourceBuffer
+	{
+		private GCHandle _element0;
+	}
+
 	private struct Batch
 	{
 		public int Layer;
 		public MaterialState MaterialState;
 		public BlendMode Blend;
-		public Texture? Texture;
+		public TextureResourceBuffer Textures;
+		public int NumTextures;
 		public RectInt? Scissor;
 		public TextureSampler Sampler;
 		public int Offset;
@@ -124,12 +132,26 @@ public class Batcher : IDisposable
 			Layer = 0;
 			MaterialState = material;
 			Blend = blend;
-			Texture = texture;
 			Sampler = sampler;
 			Scissor = null;
 			Offset = offset;
 			Elements = elements;
 			FlipVerticalUV = (texture?.IsTargetAttachment ?? false) && Graphics.OriginBottomLeft;
+		}
+
+		public bool TryGetTextureSlot(GCHandle texturePtr, out int slot)
+		{
+			for (int i = 0; i < NumTextures; i++)
+			{
+				if (Textures[i].Target == texturePtr.Target)
+				{
+					slot = i;
+					return true;
+				}
+			}
+
+			slot = 0;
+			return false;
 		}
 	}
 
@@ -139,7 +161,7 @@ public class Batcher : IDisposable
 
 		Material material = new Material(DefaultShader);
 
-		defaultMaterialState = new(material, "u_matrix", "u_texture", "u_texture_sampler", "u_global_colors");
+		defaultMaterialState = new(material, "u_matrix", "u_textures", "u_textures_sampler", "u_global_colors");
 
 		// TODO: globalColors should be static somewhere...
 		Span<Color> globalColors = [new Color(0.7f, 0.1f, 0.1f, 0f), new Color(0f, 1f, 0f, 0f)];
@@ -155,7 +177,7 @@ public class Batcher : IDisposable
 
 		Material material = new Material(DefaultShader);
 
-		defaultMaterialState = new(material, "u_matrix", "u_texture", "u_texture_sampler", "u_global_colors");
+		defaultMaterialState = new(material, "u_matrix", "u_textures", "u_textures_sampler", "u_global_colors");
 
 		// TODO: globalColors should be static somewhere...
 		Span<Color> globalColors = [Color.Red, Color.Blue];
@@ -284,11 +306,17 @@ public class Batcher : IDisposable
 		else if (batch.Scissor.HasValue)
 			trimmed = batch.Scissor;
 
-		var texture = batch.Texture != null && !batch.Texture.IsDisposed ? batch.Texture : null;
+		//var texture = batch.Texture != null && !batch.Texture.IsDisposed ? batch.Texture : null;
 
 		var mat = batch.MaterialState.Material;
 		mat.Set(batch.MaterialState.MatrixUniform, matrix);
-		mat.Set(batch.MaterialState.TextureUniform, texture);
+
+		for (int i = 0; i < batch.NumTextures; i++)
+		{
+			Texture texture = (Texture)batch.Textures[i].Target!;
+			mat.Set(batch.MaterialState.TextureUniform, texture, i);
+			batch.Textures[i].Free();
+		}
 		mat.Set(batch.MaterialState.SamplerUniform, batch.Sampler);
 
 		DrawCommand command = new(target, mesh, mat)
@@ -303,32 +331,57 @@ public class Batcher : IDisposable
 			CullMode = CullMode.None
 		};
 		command.Submit();
+
+		this.OnSubmit.Invoke();
 	}
 
 	#endregion
 
 	#region Modify State
 
+	public bool TryGetTextureSlot(Texture texture, out int slot)
+	{
+		GCHandle handle = GCHandle.Alloc(texture);
+		bool result = currentBatch.TryGetTextureSlot(handle, out slot);
+		handle.Free();
+		return result;
+	}
+
 	/// <summary>
 	/// Sets the Current Texture being drawn
 	/// </summary>
-	public void SetTexture(Texture? texture)
+	public unsafe int SetTexture(Texture? texture)
 	{
-		if (currentBatch.Texture == null || currentBatch.Elements == 0)
-		{
-			currentBatch.Texture = texture;
-			currentBatch.FlipVerticalUV = (texture?.IsTargetAttachment ?? false) && Graphics.OriginBottomLeft;
-		}
-		else if (currentBatch.Texture != texture)
-		{
-			batches.Insert(currentBatchInsert, currentBatch);
+		// TODO: Add/bind new textures until we run out of texture slots, only then should we create a new batch...
 
-			currentBatch.Texture = texture;
-			currentBatch.FlipVerticalUV = (texture?.IsTargetAttachment ?? false) && Graphics.OriginBottomLeft;
-			currentBatch.Offset += currentBatch.Elements;
-			currentBatch.Elements = 0;
-			currentBatchInsert++;
+		GCHandle handle = GCHandle.Alloc(texture);
+
+		if (currentBatch.TryGetTextureSlot(handle, out int slot))
+		{
+			handle.Free();
+			return slot;
 		}
+
+		// New texture slot
+		if (currentBatch.NumTextures < 32)
+		{
+			slot = currentBatch.NumTextures;
+			currentBatch.Textures[slot] = handle;
+			currentBatch.NumTextures++;
+			return slot;
+		}
+
+		// New batch
+		batches.Insert(currentBatchInsert, currentBatch);
+		currentBatch.FlipVerticalUV = (texture?.IsTargetAttachment ?? false) && Graphics.OriginBottomLeft;
+		currentBatch.Offset += currentBatch.Elements;
+		currentBatch.Elements = 0;
+		currentBatch.Textures[0] = handle;
+		currentBatch.NumTextures = 1;
+		currentBatch.NumTextures++;
+		currentBatchInsert++;
+
+		return 1;
 	}
 
 	/// <summary>
@@ -650,11 +703,11 @@ public class Batcher : IDisposable
 
 	#region Line
 
-	public void Line(in Vector2 from, in Vector2 to, float thickness, in Color color)
+	public void Line(in Vector2 from, in Vector2 to, float thickness, in Color color, in int slot)
 	{
 		var normal = (to - from).Normalized();
 		var perp = new Vector2(-normal.Y, normal.X) * thickness * .5f;
-		Quad(from + perp, from - perp, to - perp, to + perp, color);
+		Quad(slot, from + perp, from - perp, to - perp, to + perp, color);
 	}
 
 	public void Line(in Vector2 from, in Vector2 to, float thickness, in Color fromColor, in Color toColor)
@@ -668,7 +721,7 @@ public class Batcher : IDisposable
 
 	#region Dashed Line
 
-	public void LineDashed(Vector2 from, Vector2 to, float thickness, Color color, float dashLength, float offsetPercent)
+	public void LineDashed(Vector2 from, Vector2 to, float thickness, Color color, float dashLength, float offsetPercent, in int slot)
 	{
 		var diff = to - from;
 		var dist = diff.Length();
@@ -684,7 +737,7 @@ public class Batcher : IDisposable
 		{
 			var a = from + axis * Math.Max(d, 0f);
 			var b = from + axis * Math.Min(d + dashLength, dist);
-			Quad(a + perp, b + perp, b - perp, a - perp, color);
+			Quad(slot, a + perp, b + perp, b - perp, a - perp, color);
 		}
 	}
 
@@ -692,10 +745,10 @@ public class Batcher : IDisposable
 
 	#region Quad
 
-	public void Quad(in Quad quad, Color color)
-		=> Quad(quad.A, quad.B, quad.C, quad.D, color);
+	public void Quad(in Quad quad, Color color, in int slot)
+		=> Quad(slot, quad.A, quad.B, quad.C, quad.D, color);
 
-	public void Quad(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Color color)
+	public void Quad(in int slot, in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Color color)
 	{
 		PushQuad();
 		EnsureVertexCapacity(vertexCount + 4);
@@ -709,6 +762,10 @@ public class Batcher : IDisposable
 			vertexArray[1].Pos = Vector2.Transform(v1, Matrix);
 			vertexArray[2].Pos = Vector2.Transform(v2, Matrix);
 			vertexArray[3].Pos = Vector2.Transform(v3, Matrix);
+			vertexArray[0].TexSlot = slot;
+			vertexArray[1].TexSlot = slot;
+			vertexArray[2].TexSlot = slot;
+			vertexArray[3].TexSlot = slot;
 			vertexArray[0].Col = color;
 			vertexArray[1].Col = color;
 			vertexArray[2].Col = color;
@@ -721,16 +778,12 @@ public class Batcher : IDisposable
 			vertexArray[1].OptCol0 = default;
 			vertexArray[2].OptCol0 = default;
 			vertexArray[3].OptCol0 = default;
-			vertexArray[0].OptCol1 = default;
-			vertexArray[1].OptCol1 = default;
-			vertexArray[2].OptCol1 = default;
-			vertexArray[3].OptCol1 = default;
 		}
 
 		vertexCount += 4;
 	}
 
-	public void Quad(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, in Color color, Color optColor0 = default, Color optColor1 = default)
+	public void Quad(in int slot, in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, in Color color, Color optColor0 = default, Color optColor1 = default)
 	{
 		PushQuad();
 		EnsureVertexCapacity(vertexCount + 4);
@@ -747,6 +800,10 @@ public class Batcher : IDisposable
 			vertexArray[1].Tex = t1;
 			vertexArray[2].Tex = t2;
 			vertexArray[3].Tex = t3;
+			vertexArray[0].TexSlot = slot;
+			vertexArray[1].TexSlot = slot;
+			vertexArray[2].TexSlot = slot;
+			vertexArray[3].TexSlot = slot;
 			vertexArray[0].Col = color;
 			vertexArray[1].Col = color;
 			vertexArray[2].Col = color;
@@ -759,10 +816,6 @@ public class Batcher : IDisposable
 			vertexArray[1].OptCol0 = optColor0;
 			vertexArray[2].OptCol0 = optColor0;
 			vertexArray[3].OptCol0 = optColor0;
-			vertexArray[0].OptCol1 = optColor1;
-			vertexArray[1].OptCol1 = optColor1;
-			vertexArray[2].OptCol1 = optColor1;
-			vertexArray[3].OptCol1 = optColor1;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 4);
@@ -797,16 +850,12 @@ public class Batcher : IDisposable
 			vertexArray[1].OptCol0 = default;
 			vertexArray[2].OptCol0 = default;
 			vertexArray[3].OptCol0 = default;
-			vertexArray[0].OptCol1 = default;
-			vertexArray[1].OptCol1 = default;
-			vertexArray[2].OptCol1 = default;
-			vertexArray[3].OptCol1 = default;
 		}
 
 		vertexCount += 4;
 	}
 
-	public void Quad(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, Color c0, Color c1, Color c2, Color c3)
+	public void Quad(in int slot, in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, Color c0, Color c1, Color c2, Color c3)
 	{
 		PushQuad();
 		EnsureVertexCapacity(vertexCount + 4);
@@ -823,6 +872,10 @@ public class Batcher : IDisposable
 			vertexArray[1].Tex = t1;
 			vertexArray[2].Tex = t2;
 			vertexArray[3].Tex = t3;
+			vertexArray[0].TexSlot = slot;
+			vertexArray[1].TexSlot = slot;
+			vertexArray[2].TexSlot = slot;
+			vertexArray[3].TexSlot = slot;
 			vertexArray[0].Col = c0;
 			vertexArray[1].Col = c1;
 			vertexArray[2].Col = c2;
@@ -835,10 +888,6 @@ public class Batcher : IDisposable
 			vertexArray[1].OptCol0 = default;
 			vertexArray[2].OptCol0 = default;
 			vertexArray[3].OptCol0 = default;
-			vertexArray[0].OptCol1 = default;
-			vertexArray[1].OptCol1 = default;
-			vertexArray[2].OptCol1 = default;
-			vertexArray[3].OptCol1 = default;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 4);
@@ -847,17 +896,17 @@ public class Batcher : IDisposable
 		vertexCount += 4;
 	}
 
-	public void QuadLine(in Vector2 a, in Vector2 b, in Vector2 c, in Vector2 d, float thickness, in Color color)
+	public void QuadLine(in Vector2 a, in Vector2 b, in Vector2 c, in Vector2 d, float thickness, in Color color, in int slot)
 	{
-		Line(a, b, thickness, color);
-		Line(b, c, thickness, color);
-		Line(c, d, thickness, color);
-		Line(d, a, thickness, color);
+		Line(a, b, thickness, color, slot);
+		Line(b, c, thickness, color, slot);
+		Line(c, d, thickness, color, slot);
+		Line(d, a, thickness, color, slot);
 	}
 
 	[Obsolete("Use QuadLine instead")]
-	public void QuadLines(in Vector2 a, in Vector2 b, in Vector2 c, in Vector2 d, float thickness, in Color color)
-		=> QuadLine(a, b, c, d, thickness, color);
+	public void QuadLines(in Vector2 a, in Vector2 b, in Vector2 c, in Vector2 d, float thickness, in Color color, in int slot)
+		=> QuadLine(a, b, c, d, thickness, color, slot);
 
 	#endregion
 
@@ -885,9 +934,6 @@ public class Batcher : IDisposable
 			vertexArray[0].OptCol0 = default;
 			vertexArray[1].OptCol0 = default;
 			vertexArray[2].OptCol0 = default;
-			vertexArray[0].OptCol1 = default;
-			vertexArray[1].OptCol1 = default;
-			vertexArray[2].OptCol1 = default;
 		}
 
 		vertexCount += 3;
@@ -917,9 +963,6 @@ public class Batcher : IDisposable
 			vertexArray[0].OptCol0 = default;
 			vertexArray[1].OptCol0 = default;
 			vertexArray[2].OptCol0 = default;
-			vertexArray[0].OptCol1 = default;
-			vertexArray[1].OptCol1 = default;
-			vertexArray[2].OptCol1 = default;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 3);
@@ -950,9 +993,6 @@ public class Batcher : IDisposable
 			vertexArray[0].OptCol0 = default;
 			vertexArray[1].OptCol0 = default;
 			vertexArray[2].OptCol0 = default;
-			vertexArray[0].OptCol1 = default;
-			vertexArray[1].OptCol1 = default;
-			vertexArray[2].OptCol1 = default;
 
 			if (currentBatch.FlipVerticalUV)
 				FlipVerticalUVs(vertexPtr, vertexCount, 3);
@@ -961,20 +1001,21 @@ public class Batcher : IDisposable
 		vertexCount += 3;
 	}
 
-	public void TriangleLine(in Vector2 v0, in Vector2 v1, in Vector2 v2, float thickness, in Color color)
+	public void TriangleLine(in Vector2 v0, in Vector2 v1, in Vector2 v2, float thickness, in Color color, in int slot)
 	{
-		Line(v0, v1, thickness, color);
-		Line(v1, v2, thickness, color);
-		Line(v2, v0, thickness, color);
+		Line(v0, v1, thickness, color, slot);
+		Line(v1, v2, thickness, color, slot);
+		Line(v2, v0, thickness, color, slot);
 	}
 
 	#endregion
 
 	#region Rect
 
-	public void Rect(in Rect rect, Color color)
+	public void Rect(in int slot, in Rect rect, Color color)
 	{
 		Quad(
+			slot,
 			new Vector2(rect.X, rect.Y),
 			new Vector2(rect.X + rect.Width, rect.Y),
 			new Vector2(rect.X + rect.Width, rect.Y + rect.Height),
@@ -982,9 +1023,10 @@ public class Batcher : IDisposable
 			color);
 	}
 
-	public void Rect(in Vector2 position, in Vector2 size, Color color)
+	public void Rect(in int slot, in Vector2 position, in Vector2 size, Color color)
 	{
 		Quad(
+			slot,
 			position,
 			position + new Vector2(size.X, 0),
 			position + new Vector2(size.X, size.Y),
@@ -992,9 +1034,10 @@ public class Batcher : IDisposable
 			color);
 	}
 
-	public void Rect(float x, float y, float width, float height, Color color)
+	public void Rect(in int slot, float x, float y, float width, float height, Color color)
 	{
 		Quad(
+			slot,
 			new Vector2(x, y),
 			new Vector2(x + width, y),
 			new Vector2(x + width, y + height),
@@ -1031,49 +1074,49 @@ public class Batcher : IDisposable
 			c0, c1, c2, c3);
 	}
 	
-	public void RectLine(in Rect rect, float t, Color color)
+	public void RectLine(in Rect rect, float t, Color color, in int slot)
 	{
 		if (t > 0)
 		{
 			var tx = Math.Min(t, rect.Width / 2f);
 			var ty = Math.Min(t, rect.Height / 2f);
 
-			Rect(rect.X, rect.Y, rect.Width, ty, color);
-			Rect(rect.X, rect.Bottom - ty, rect.Width, ty, color);
-			Rect(rect.X, rect.Y + ty, tx, rect.Height - ty * 2, color);
-			Rect(rect.Right - tx, rect.Y + ty, tx, rect.Height - ty * 2, color);
+			Rect(slot, rect.X, rect.Y, rect.Width, ty, color);
+			Rect(slot, rect.X, rect.Bottom - ty, rect.Width, ty, color);
+			Rect(slot, rect.X, rect.Y + ty, tx, rect.Height - ty * 2, color);
+			Rect(slot, rect.Right - tx, rect.Y + ty, tx, rect.Height - ty * 2, color);
 		}
 	}
 
-	public void RectDashed(Rect rect, float thickness, in Color color, float dashLength, float dashOffset)
+	public void RectDashed(Rect rect, float thickness, in Color color, float dashLength, float dashOffset, in int slot)
 	{
 		rect = rect.Inflate(-thickness / 2);
-		LineDashed(rect.TopLeft, rect.TopRight, thickness, color, dashLength, dashOffset);
-		LineDashed(rect.TopRight, rect.BottomRight, thickness, color, dashLength, dashOffset);
-		LineDashed(rect.BottomRight, rect.BottomLeft, thickness, color, dashLength, dashOffset);
-		LineDashed(rect.BottomLeft, rect.TopLeft, thickness, color, dashLength, dashOffset);
+		LineDashed(rect.TopLeft, rect.TopRight, thickness, color, dashLength, dashOffset, slot);
+		LineDashed(rect.TopRight, rect.BottomRight, thickness, color, dashLength, dashOffset, slot);
+		LineDashed(rect.BottomRight, rect.BottomLeft, thickness, color, dashLength, dashOffset, slot);
+		LineDashed(rect.BottomLeft, rect.TopLeft, thickness, color, dashLength, dashOffset, slot);
 	}
 
 	#endregion
 
 	#region Rounded Rect
 
-	public void RectRounded(float x, float y, float width, float height, float r0, float r1, float r2, float r3, Color color)
+	public void RectRounded(float x, float y, float width, float height, float r0, float r1, float r2, float r3, Color color, in int slot)
 	{
-		RectRounded(new Rect(x, y, width, height), r0, r1, r2, r3, color);
+		RectRounded(new Rect(x, y, width, height), r0, r1, r2, r3, color, slot);
 	}
 
-	public void RectRounded(float x, float y, float width, float height, float radius, Color color)
+	public void RectRounded(float x, float y, float width, float height, float radius, Color color, in int slot)
 	{
-		RectRounded(new Rect(x, y, width, height), radius, radius, radius, radius, color);
+		RectRounded(new Rect(x, y, width, height), radius, radius, radius, radius, color, slot);
 	}
 
-	public void RectRounded(in Rect rect, float radius, Color color)
+	public void RectRounded(in Rect rect, float radius, Color color, in int slot)
 	{
-		RectRounded(rect, radius, radius, radius, radius, color);
+		RectRounded(rect, radius, radius, radius, radius, color, slot);
 	}
 
-	public void RectRounded(in Rect rect, float r0, float r1, float r2, float r3, Color color)
+	public void RectRounded(in Rect rect, float r0, float r1, float r2, float r3, Color color, in int slot)
 	{
 		// clamp
 		r0 = Math.Min(Math.Min(Math.Max(0, r0), rect.Width / 2f), rect.Height / 2f);
@@ -1083,7 +1126,7 @@ public class Batcher : IDisposable
 
 		if (r0 <= 0 && r1 <= 0 && r2 <= 0 && r3 <= 0)
 		{
-			Rect(rect, color);
+			Rect(slot, rect, color);
 		}
 		else
 		{
@@ -1218,35 +1261,35 @@ public class Batcher : IDisposable
 			if (r0 > 0)
 				SemiCircle(r0_br, up, -left, r0, Math.Max(3, (int)(r0 / 4)), color);
 			else
-				Quad(r0_tl, r0_tr, r0_br, r0_bl, color);
+				Quad(slot, r0_tl, r0_tr, r0_br, r0_bl, color);
 
 			// top-right corner
 			if (r1 > 0)
 				SemiCircle(r1_bl, up, right, r1, Math.Max(3, (int)(r1 / 4)), color);
 			else
-				Quad(r1_tl, r1_tr, r1_br, r1_bl, color);
+				Quad(slot, r1_tl, r1_tr, r1_br, r1_bl, color);
 
 			// bottom-right corner
 			if (r2 > 0)
 				SemiCircle(r2_tl, right, down, r2, Math.Max(3, (int)(r2 / 4)), color);
 			else
-				Quad(r2_tl, r2_tr, r2_br, r2_bl, color);
+				Quad(slot, r2_tl, r2_tr, r2_br, r2_bl, color);
 
 			// bottom-left corner
 			if (r3 > 0)
 				SemiCircle(r3_tr, down, left, r3, Math.Max(3, (int)(r3 / 4)), color);
 			else
-				Quad(r3_tl, r3_tr, r3_br, r3_bl, color);
+				Quad(slot, r3_tl, r3_tr, r3_br, r3_bl, color);
 		}
 
 	}
 
-	public void RectRoundedLine(in Rect r, float rounding, float t, Color color)
+	public void RectRoundedLine(in Rect r, float rounding, float t, Color color, in int slot)
 	{
-		RectRoundedLine(r, rounding, rounding, rounding, rounding, t, color);
+		RectRoundedLine(r, rounding, rounding, rounding, rounding, t, color, slot);
 	}
 
-	public void RectRoundedLine(in Rect r, float rtl, float rtr, float rbr, float rbl, float t, Color color)
+	public void RectRoundedLine(in Rect r, float rtl, float rtr, float rbr, float rbl, float t, Color color, in int slot)
 	{
 		// clamp
 		rtl = MathF.Min(MathF.Min(MathF.Max(0.0f, rtl), r.Width / 2.0f), r.Height / 2.0f);
@@ -1256,7 +1299,7 @@ public class Batcher : IDisposable
 
 		if (rtl <= 0 && rtr <= 0 && rbr <= 0 && rbl <= 0)
 		{
-			RectLine(r, t, color);
+			RectLine(r, t, color, slot);
 		}
 		else
 		{
@@ -1266,20 +1309,20 @@ public class Batcher : IDisposable
 			var rblSteps = Math.Max(3, (int)(rbl / 4));
 
 			// rounded corners
-			SemiCircleLine(new Vector2(r.X + rtl, r.Y + rtl), Calc.Up, Calc.Left, rtl, rtlSteps, t, color);
-			SemiCircleLine(new Vector2(r.X + r.Width - rtr, r.Y + rtr), Calc.Up, Calc.Up + Calc.TAU * 0.25f, rtr, rtrSteps, t, color);
-			SemiCircleLine(new Vector2(r.X + rbl, r.Y + r.Height - rbl), Calc.Down, Calc.Left, rbl, rblSteps, t, color);
-			SemiCircleLine(new Vector2(r.X + r.Width - rbr, r.Y + r.Height - rbr), Calc.Down, Calc.Right, rbr, rbrSteps, t, color);
+			SemiCircleLine(new Vector2(r.X + rtl, r.Y + rtl), Calc.Up, Calc.Left, rtl, rtlSteps, t, color, slot);
+			SemiCircleLine(new Vector2(r.X + r.Width - rtr, r.Y + rtr), Calc.Up, Calc.Up + Calc.TAU * 0.25f, rtr, rtrSteps, t, color, slot);
+			SemiCircleLine(new Vector2(r.X + rbl, r.Y + r.Height - rbl), Calc.Down, Calc.Left, rbl, rblSteps, t, color, slot);
+			SemiCircleLine(new Vector2(r.X + r.Width - rbr, r.Y + r.Height - rbr), Calc.Down, Calc.Right, rbr, rbrSteps, t, color, slot);
 
 			// connect sides that aren't touching
 			if (r.Height > rtl + rbl)
-				Rect(new Rect(r.X, r.Y + rtl, t, r.Height - rtl - rbl), color);
+				Rect(slot, new Rect(r.X, r.Y + rtl, t, r.Height - rtl - rbl), color);
 			if (r.Height > rtr + rbr)
-				Rect(new Rect(r.X + r.Width - t, r.Y + rtr, t, r.Height - rtr - rbr), color);
+				Rect(slot, new Rect(r.X + r.Width - t, r.Y + rtr, t, r.Height - rtr - rbr), color);
 			if (r.Width > rtl + rtr)
-				Rect(new Rect(r.X + rtl, r.Y, r.Width - rtl - rtr, t), color);
+				Rect(slot, new Rect(r.X + rtl, r.Y, r.Width - rtl - rtr, t), color);
 			if (r.Width > rbl + rbr)
-				Rect(new Rect(r.X + rbl, r.Y + r.Height - t, r.Width - rbl - rbr, t), color);
+				Rect(slot, new Rect(r.X + rbl, r.Y + r.Height - t, r.Width - rbl - rbr, t), color);
 		}
 	}
 
@@ -1304,7 +1347,7 @@ public class Batcher : IDisposable
 		}
 	}
 
-	public void SemiCircleLine(in Vector2 center, float startRadians, float endRadians, float radius, int steps, float t, Color color)
+	public void SemiCircleLine(in Vector2 center, float startRadians, float endRadians, float radius, int steps, float t, Color color, in int slot)
 	{
 		if (t >= radius)
 		{
@@ -1321,7 +1364,7 @@ public class Batcher : IDisposable
 				var nextInner = Calc.AngleToVector(startRadians + add * (i / (float)steps), radius - t);
 				var nextOuter = Calc.AngleToVector(startRadians + add * (i / (float)steps), radius);
 
-				Quad(center + lastInner, center + lastOuter, center + nextOuter, center + nextInner, color);
+				Quad(slot, center + lastInner, center + lastOuter, center + nextOuter, center + nextInner, color);
 
 				lastInner = nextInner;
 				lastOuter = nextOuter;
@@ -1347,7 +1390,7 @@ public class Batcher : IDisposable
 	public void Circle(in Circle circle, int steps, in Color color)
 		=> Circle(circle.Position, circle.Radius, steps, color, color);
 
-	public void CircleLine(in Vector2 center, float radius, float thickness, int steps, in Color color)
+	public void CircleLine(in Vector2 center, float radius, float thickness, int steps, in Color color, in int slot)
 	{
 		var innerRadius = radius - thickness;
 		if (innerRadius <= 0)
@@ -1361,6 +1404,7 @@ public class Batcher : IDisposable
 		{
 			var next = Calc.AngleToVector((i / (float)steps) * Calc.TAU);
 			Quad(
+				slot,
 				center + last * innerRadius, center + last * radius,
 				center + next * radius, center + next * innerRadius,
 				color);
@@ -1368,10 +1412,10 @@ public class Batcher : IDisposable
 		}
 	}
 
-	public void CircleLine(in Circle circle, float thickness, int steps, in Color color)
-		=> CircleLine(circle.Position, circle.Radius, thickness, steps, color);
+	public void CircleLine(in Circle circle, float thickness, int steps, in Color color, in int slot)
+		=> CircleLine(circle.Position, circle.Radius, thickness, steps, color, slot);
 
-	public void CircleDashed(in Vector2 center, float radius, float thickness, int steps, in Color color, float dashLength, float dashOffset)
+	public void CircleDashed(in Vector2 center, float radius, float thickness, int steps, in Color color, float dashLength, float dashOffset, in int slot)
 	{
 		var last = Calc.AngleToVector(0, radius);
 		var segmentLength = (last - Calc.AngleToVector(Calc.TAU / steps, radius)).Length();
@@ -1379,20 +1423,20 @@ public class Batcher : IDisposable
 		for (int i = 1; i <= steps; i++)
 		{
 			var next = Calc.AngleToVector((i / (float)steps) * Calc.TAU, radius);
-			LineDashed(center + last, center + next, thickness, color, dashLength, dashOffset);
+			LineDashed(center + last, center + next, thickness, color, dashLength, dashOffset, slot);
 			dashOffset += segmentLength;
 			last = next;
 		}
 	}
 
-	public void CircleDashed(in Circle circle, float thickness, int steps, in Color color, float dashLength, float dashOffset)
-		=> CircleDashed(circle.Position, circle.Radius, thickness, steps, color, dashLength, dashOffset);
+	public void CircleDashed(in Circle circle, float thickness, int steps, in Color color, float dashLength, float dashOffset, in int slot)
+		=> CircleDashed(circle.Position, circle.Radius, thickness, steps, color, dashLength, dashOffset, slot);
 
 	#endregion
 
 	#region Radial Bar
 
-	public void RadialBar(in Vector2 position, float percent, float inner_radius, float outer_radius, in Color color)
+	public void RadialBar(in Vector2 position, float percent, float inner_radius, float outer_radius, in Color color, in int slot)
 	{
 		if (percent <= 0)
 			return;
@@ -1431,7 +1475,7 @@ public class Batcher : IDisposable
 						Circle((next_inner + next_outer) / 2, bar_radius, 16, color);
 				}
 
-				Quad(prev_inner, prev_outer, next_outer, next_inner, color);
+				Quad(slot, prev_inner, prev_outer, next_outer, next_inner, color);
 
 				if (next >= percent)
 					break;
@@ -1461,15 +1505,10 @@ public class Batcher : IDisposable
 
 		Matrix = modelMatrix * Matrix;
 
-		SetTexture(texture);
+		int slot = SetTexture(texture);
 
 		Quad(
-			/*
-			Vector2.Zero,
-			new Vector2(sizeInWorldUnits.X, 0f),
-			new Vector2(sizeInWorldUnits.X, sizeInWorldUnits.Y),
-			new Vector2(0f, sizeInWorldUnits.Y),
-			*/
+			slot,
 
 			bottomLeft,
 			bottomRight,
@@ -1481,6 +1520,7 @@ public class Batcher : IDisposable
 			new Vector2(1, 1),
 			new Vector2(1, 0),
 			new Vector2(0, 0),
+
 			color,
 			optColor0,
 			optColor1
@@ -1495,9 +1535,10 @@ public class Batcher : IDisposable
 
 		Matrix = modelMatrix * Matrix;
 
-		SetTexture(texture);
+		int slot = SetTexture(texture);
 
 		Quad(
+			slot, 
 			Vector2.Zero,
 			new Vector2(sizeInWorldUnits.X, 0f),
 			new Vector2(sizeInWorldUnits.X, sizeInWorldUnits.Y),
@@ -1515,8 +1556,9 @@ public class Batcher : IDisposable
 
 	public void TextImageForge(in Subtexture subtex, in Vector2 position, Color color, float scale)
 	{
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			(position + subtex.DrawCoords0 * scale),
 			(position + subtex.DrawCoords1 * scale),
 			(position + subtex.DrawCoords2 * scale),
@@ -1584,13 +1626,8 @@ public class Batcher : IDisposable
 		}
 	}
 
-	public void Mesh(Texture texture, Span<int> indices, ReadOnlySpan<Vertex> vertices)
+	public void Mesh(Span<int> indices, ReadOnlySpan<Vertex> vertices)
 	{
-		bool wasFlip = FlipVerticalUV;
-		FlipVerticalUV = false;
-		SetTexture(texture);
-		FlipVerticalUV = wasFlip;
-
 		EnsureIndexCapacity(indexCount + indices.Length);
 		EnsureVertexCapacity(vertexCount + vertices.Length);
 
@@ -1626,8 +1663,8 @@ public class Batcher : IDisposable
 		in Vector2 uv0, in Vector2 uv1, in Vector2 uv2, in Vector2 uv3,
 		Color col0, Color col1, Color col2, Color col3)
 	{
-		SetTexture(texture);
-		Quad(pos0, pos1, pos2, pos3, uv0, uv1, uv2, uv3, col0, col1, col2, col3);
+		int slot = SetTexture(texture);
+		Quad(slot, pos0, pos1, pos2, pos3, uv0, uv1, uv2, uv3, col0, col1, col2, col3);
 	}
 
 	public void Image(Texture texture,
@@ -1635,14 +1672,15 @@ public class Batcher : IDisposable
 		in Vector2 uv0, in Vector2 uv1, in Vector2 uv2, in Vector2 uv3,
 		Color color)
 	{
-		SetTexture(texture);
-		Quad(pos0, pos1, pos2, pos3, uv0, uv1, uv2, uv3, color);
+		int slot = SetTexture(texture);
+		Quad(slot, pos0, pos1, pos2, pos3, uv0, uv1, uv2, uv3, color);
 	}
 
 	public void Image(Texture texture, Color color)
 	{
-		SetTexture(texture);
+		int slot = SetTexture(texture);
 		Quad(
+			slot,
 			new Vector2(0, 0),
 			new Vector2(texture.Width, 0),
 			new Vector2(texture.Width, texture.Height),
@@ -1656,8 +1694,9 @@ public class Batcher : IDisposable
 
 	public void Image(Texture texture, in Vector2 position, Color color)
 	{
-		SetTexture(texture);
+		int slot = SetTexture(texture);
 		Quad(
+			slot,
 			position,
 			position + new Vector2(texture.Width, 0),
 			position + new Vector2(texture.Width, texture.Height),
@@ -1675,8 +1714,9 @@ public class Batcher : IDisposable
 
 		Matrix = Transform.CreateMatrix(position, origin, scale, rotation) * Matrix;
 
-		SetTexture(texture);
+		int slot = SetTexture(texture);
 		Quad(
+			slot,
 			new Vector2(0, 0),
 			new Vector2(texture.Width, 0),
 			new Vector2(texture.Width, texture.Height),
@@ -1697,8 +1737,9 @@ public class Batcher : IDisposable
 		var tx1 = clip.Right / texture.Width;
 		var ty1 = clip.Bottom / texture.Height;
 
-		SetTexture(texture);
+		int slot =SetTexture(texture);
 		Quad(
+			slot,
 			position,
 			position + new Vector2(clip.Width, 0),
 			position + new Vector2(clip.Width, clip.Height),
@@ -1720,8 +1761,9 @@ public class Batcher : IDisposable
 		var tx1 = clip.Right / texture.Width;
 		var ty1 = clip.Bottom / texture.Height;
 
-		SetTexture(texture);
+		int slot = SetTexture(texture);
 		Quad(
+			slot,
 			new Vector2(0, 0),
 			new Vector2(clip.Width, 0),
 			new Vector2(clip.Width, clip.Height),
@@ -1737,8 +1779,9 @@ public class Batcher : IDisposable
 
 	public void Image(in Subtexture subtex, Color color)
 	{
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			subtex.DrawCoords0, subtex.DrawCoords1, subtex.DrawCoords2, subtex.DrawCoords3,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			color);
@@ -1746,8 +1789,8 @@ public class Batcher : IDisposable
 
 	public void Image(in Subtexture subtex, in Vector2 position, Color color)
 	{
-		SetTexture(subtex.Texture);
-		Quad(position + subtex.DrawCoords0, position + subtex.DrawCoords1, position + subtex.DrawCoords2, position + subtex.DrawCoords3,
+		int slot = SetTexture(subtex.Texture);
+		Quad(slot, position + subtex.DrawCoords0, position + subtex.DrawCoords1, position + subtex.DrawCoords2, position + subtex.DrawCoords3,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			color);
 	}
@@ -1758,8 +1801,9 @@ public class Batcher : IDisposable
 
 		Matrix = Transform.CreateMatrix(position, origin, scale, rotation) * Matrix;
 
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			subtex.DrawCoords0, subtex.DrawCoords1, subtex.DrawCoords2, subtex.DrawCoords3,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			color);
@@ -1773,8 +1817,9 @@ public class Batcher : IDisposable
 
 		Matrix = Transform.CreateMatrix(position, origin, scale, rotation) * Matrix;
 
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			subtex.DrawCoords0, subtex.DrawCoords1, subtex.DrawCoords2, subtex.DrawCoords3,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			c0, c1, c2, c3);
@@ -1808,8 +1853,9 @@ public class Batcher : IDisposable
 			ty1 = source.Bottom / tex.Height;
 		}
 
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			new Vector2(px0, py0), new Vector2(px1, py0), new Vector2(px1, py1), new Vector2(px0, py1),
 			new Vector2(tx0, ty0), new Vector2(tx1, ty0), new Vector2(tx1, ty1), new Vector2(tx0, ty1),
 			color);
@@ -1819,8 +1865,9 @@ public class Batcher : IDisposable
 
 	public void ImageStretch(in Subtexture subtex, in Rect rect, Color color)
 	{
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			rect.TopLeft, rect.TopRight, rect.BottomRight, rect.BottomLeft,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			color);
@@ -1833,8 +1880,9 @@ public class Batcher : IDisposable
 		var pos = rect.Position;
 		Matrix = Transform.CreateMatrix(pos, origin, scale, rotation) * Matrix;
 
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			Vector2.Zero, rect.TopRight - pos, rect.BottomRight - pos, rect.BottomLeft - pos,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			color);
@@ -1844,8 +1892,9 @@ public class Batcher : IDisposable
 
 	public void ImageStretch(in Subtexture subtex, in Rect rect, Color c0, Color c1, Color c2, Color c3)
 	{
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			rect.TopLeft, rect.TopRight, rect.BottomRight, rect.BottomLeft,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			c0, c1, c2, c3);
@@ -1858,8 +1907,9 @@ public class Batcher : IDisposable
 		var pos = rect.Position;
 		Matrix = Transform.CreateMatrix(pos, origin, scale, rotation) * Matrix;
 
-		SetTexture(subtex.Texture);
+		int slot = SetTexture(subtex.Texture);
 		Quad(
+			slot,
 			Vector2.Zero, rect.TopRight - pos, rect.BottomRight - pos, rect.BottomLeft - pos,
 			subtex.TexCoords0, subtex.TexCoords1, subtex.TexCoords2, subtex.TexCoords3,
 			c0, c1, c2, c3);
@@ -1966,7 +2016,7 @@ public class Batcher : IDisposable
 	/// Draws a checkered pattern.
 	/// This is fine for small a amount of grid cells, but larger areas should use a custom shader for performance.
 	/// </summary>
-	public void CheckeredPattern(in Rect bounds, float cellWidth, float cellHeight, Color a, Color b)
+	public void CheckeredPattern(in Rect bounds, float cellWidth, float cellHeight, Color a, Color b, in int slot)
 	{
 		var odd = false;
 
@@ -1977,7 +2027,7 @@ public class Batcher : IDisposable
 			{
 				var color = (odd ? a : b);
 				if (color.A > 0)
-					Rect(x, y, Math.Min(bounds.Right - x, cellWidth), Math.Min(bounds.Bottom - y, cellHeight), color);
+					Rect(slot, x, y, Math.Min(bounds.Right - x, cellWidth), Math.Min(bounds.Bottom - y, cellHeight), color);
 
 				odd = !odd;
 				cells++;
