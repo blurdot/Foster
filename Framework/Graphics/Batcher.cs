@@ -1495,6 +1495,42 @@ public class Batcher : IDisposable
 
 	#region Forge
 
+	public void RenderTextureForge(float aspectScale, Matrix4x4 inverseCameraMatrix, Texture texture, Color color, Color optColor0 = default, Color optColor1 = default)
+	{
+		var was = Matrix;
+
+		//Matrix *= inverseCameraMatrix;
+		Vector2 cameraOffset = new Vector2(inverseCameraMatrix.Translation.X, inverseCameraMatrix.Translation.Y);
+
+		Vector2 bottomLeft = new Vector2(-App.WidthInPixels * 0.5f * aspectScale, App.HeightInPixels * 0.5f * aspectScale) + cameraOffset;
+		Vector2 bottomRight = new Vector2(App.WidthInPixels * 0.5f * aspectScale, App.HeightInPixels * 0.5f * aspectScale) + cameraOffset;
+		Vector2 topRight = new Vector2(App.WidthInPixels * 0.5f * aspectScale, -App.HeightInPixels * 0.5f * aspectScale) + cameraOffset;
+		Vector2 topLeft = new Vector2(-App.WidthInPixels * 0.5f * aspectScale, -App.HeightInPixels * 0.5f * aspectScale) + cameraOffset;
+
+		int slot = SetTexture(texture);
+
+		Quad(
+			slot,
+
+			bottomLeft,
+			bottomRight,
+			topRight,
+			topLeft,
+
+			// Flipped Y
+			new Vector2(0, 1),
+			new Vector2(1, 1),
+			new Vector2(1, 0),
+			new Vector2(0, 0),
+
+			color,
+			optColor0,
+			optColor1
+			);
+
+		Matrix = was;
+	}
+
 	public void ImageForge(Texture texture, Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Vector2 pivot, Color color, Color optColor0 = default, Color optColor1 = default)
 	{
 		var was = Matrix;
@@ -1632,21 +1668,20 @@ public class Batcher : IDisposable
 		}
 	}
 
-	public void Mesh(Span<int> indices, ReadOnlySpan<Vertex> vertices)
+	public void Mesh(Span<int> indices, Span<Vertex> vertices)
 	{
 		EnsureIndexCapacity(indexCount + indices.Length);
 		EnsureVertexCapacity(vertexCount + vertices.Length);
 
-		// Adjust mesh indices by batch indices
-		for (int i = 0; i < indices.Length; i++)
-		{
-			indices[i] += vertexCount;
-		}
-
 		unsafe
 		{
 			var indexArray = new Span<int>((int*)indexPtr + indexCount, indices.Length);
-			indices.CopyTo(indexArray);
+			// Adjust mesh indices by batch indices
+			for (int i = 0; i < indices.Length; i++)
+			{
+				indexArray[i] = indices[i] + vertexCount;
+			}
+
 			var vertexArray = new Span<Vertex>((Vertex*)vertexPtr + vertexCount, vertices.Length);
 			vertices.CopyTo(vertexArray);
 

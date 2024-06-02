@@ -348,6 +348,7 @@ public static class App
 
 		// Clear Time
 		Time.Frame = 0;
+		Time.RenderFrame = 0;
 		Time.Duration = new();
 		lastTime = TimeSpan.Zero;
 		accumulator = TimeSpan.Zero;
@@ -461,6 +462,7 @@ public static class App
 			Update(deltaTime);
 		}
 
+		Time.RenderFrame++;
 		Time.AdvanceRender(deltaTime);
 
 		for (int i = 0; i < modules.Count; i ++)

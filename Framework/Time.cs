@@ -35,6 +35,7 @@ public static class Time
 	/// Current frame index
 	/// </summary>
 	public static ulong Frame = 0;
+	public static ulong RenderFrame = 0;
 
 	/// <summary>
 	/// If the Application should run in Fixed Timestep mode
