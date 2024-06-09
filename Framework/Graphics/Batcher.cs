@@ -918,7 +918,7 @@ public class Batcher : IDisposable
 
 	#region Triangle
 
-	public void Triangle(in Vector2 v0, in Vector2 v1, in Vector2 v2, Color color)
+	public void Triangle(in Vector2 v0, in Vector2 v1, in Vector2 v2, Color color, in int slot)
 	{
 		PushTriangle();
 		EnsureVertexCapacity(vertexCount + 3);
@@ -934,6 +934,9 @@ public class Batcher : IDisposable
 			vertexArray[0].Col = color;
 			vertexArray[1].Col = color;
 			vertexArray[2].Col = color;
+			vertexArray[0].TexSlot = slot;
+			vertexArray[1].TexSlot = slot;
+			vertexArray[2].TexSlot = slot;
 			vertexArray[0].Mode = mode;
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
@@ -945,7 +948,7 @@ public class Batcher : IDisposable
 		vertexCount += 3;
 	}
 
-	public void Triangle(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 uv0, in Vector2 uv1, in Vector2 uv2, Color color)
+	public void Triangle(in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 uv0, in Vector2 uv1, in Vector2 uv2, Color color, in int slot)
 	{
 		PushTriangle();
 		EnsureVertexCapacity(vertexCount + 3);
@@ -977,7 +980,7 @@ public class Batcher : IDisposable
 		vertexCount += 3;
 	}
 
-	public void Triangle(in Vector2 v0, in Vector2 v1, in Vector2 v2, Color c0, Color c1, Color c2)
+	public void Triangle(in Vector2 v0, in Vector2 v1, in Vector2 v2, Color c0, Color c1, Color c2, in int slot)
 	{
 		PushTriangle();
 		EnsureVertexCapacity(vertexCount + 3);
@@ -993,6 +996,9 @@ public class Batcher : IDisposable
 			vertexArray[0].Col = c0;
 			vertexArray[1].Col = c1;
 			vertexArray[2].Col = c2;
+			vertexArray[0].TexSlot = slot;
+			vertexArray[1].TexSlot = slot;
+			vertexArray[2].TexSlot = slot;
 			vertexArray[0].Mode = mode;
 			vertexArray[1].Mode = mode;
 			vertexArray[2].Mode = mode;
@@ -1265,25 +1271,25 @@ public class Batcher : IDisposable
 
 			// top-left corner
 			if (r0 > 0)
-				SemiCircle(r0_br, up, -left, r0, Math.Max(3, (int)(r0 / 4)), color);
+				SemiCircle(r0_br, up, -left, r0, Math.Max(3, (int)(r0 / 4)), color, in slot);
 			else
 				Quad(slot, r0_tl, r0_tr, r0_br, r0_bl, color);
 
 			// top-right corner
 			if (r1 > 0)
-				SemiCircle(r1_bl, up, right, r1, Math.Max(3, (int)(r1 / 4)), color);
+				SemiCircle(r1_bl, up, right, r1, Math.Max(3, (int)(r1 / 4)), color, in slot);
 			else
 				Quad(slot, r1_tl, r1_tr, r1_br, r1_bl, color);
 
 			// bottom-right corner
 			if (r2 > 0)
-				SemiCircle(r2_tl, right, down, r2, Math.Max(3, (int)(r2 / 4)), color);
+				SemiCircle(r2_tl, right, down, r2, Math.Max(3, (int)(r2 / 4)), color, in slot);
 			else
 				Quad(slot, r2_tl, r2_tr, r2_br, r2_bl, color);
 
 			// bottom-left corner
 			if (r3 > 0)
-				SemiCircle(r3_tr, down, left, r3, Math.Max(3, (int)(r3 / 4)), color);
+				SemiCircle(r3_tr, down, left, r3, Math.Max(3, (int)(r3 / 4)), color, in slot);
 			else
 				Quad(slot, r3_tl, r3_tr, r3_br, r3_bl, color);
 		}
@@ -1336,19 +1342,19 @@ public class Batcher : IDisposable
 
 	#region Circle
 
-	public void SemiCircle(in Vector2 center, float startRadians, float endRadians, float radius, int steps, in Color color)
+	public void SemiCircle(in Vector2 center, float startRadians, float endRadians, float radius, int steps, in Color color, in int slot)
 	{
-		SemiCircle(center, startRadians, endRadians, radius, steps, color, color);
+		SemiCircle(center, startRadians, endRadians, radius, steps, color, color, in slot);
 	}
 
-	public void SemiCircle(in Vector2 center, float startRadians, float endRadians, float radius, int steps, in Color centerColor, in Color edgeColor)
+	public void SemiCircle(in Vector2 center, float startRadians, float endRadians, float radius, int steps, in Color centerColor, in Color edgeColor, in int slot)
 	{
 		var last = Calc.AngleToVector(startRadians, radius);
 
 		for (int i = 1; i <= steps; i++)
 		{
 			var next = Calc.AngleToVector(startRadians + (endRadians - startRadians) * (i / (float)steps), radius);
-			Triangle(center + last, center + next, center, edgeColor, edgeColor, centerColor);
+			Triangle(center + last, center + next, center, edgeColor, edgeColor, centerColor, slot);
 			last = next;
 		}
 	}
@@ -1357,7 +1363,7 @@ public class Batcher : IDisposable
 	{
 		if (t >= radius)
 		{
-			SemiCircle(center, startRadians, endRadians, radius, steps, color, color);
+			SemiCircle(center, startRadians, endRadians, radius, steps, color, color, in slot);
 		}
 		else
 		{
@@ -1378,30 +1384,30 @@ public class Batcher : IDisposable
 		}
 	}
 
-	public void Circle(in Vector2 center, float radius, int steps, in Color color)
-		=> Circle(center, radius, steps, color, color);
+	public void Circle(in Vector2 center, float radius, int steps, in Color color, in int slot)
+		=> Circle(center, radius, steps, color, color, slot);
 
-	public void Circle(in Vector2 center, float radius, int steps, in Color centerColor, in Color edgeColor)
+	public void Circle(in Vector2 center, float radius, int steps, in Color centerColor, in Color edgeColor, in int slot)
 	{
 		var last = Calc.AngleToVector(0, radius);
 
 		for (int i = 1; i <= steps; i++)
 		{
 			var next = Calc.AngleToVector((i / (float)steps) * Calc.TAU, radius);
-			Triangle(center + last, center + next, center, edgeColor, edgeColor, centerColor);
+			Triangle(center + last, center + next, center, edgeColor, edgeColor, centerColor, in slot);
 			last = next;
 		}
 	}
 
-	public void Circle(in Circle circle, int steps, in Color color)
-		=> Circle(circle.Position, circle.Radius, steps, color, color);
+	public void Circle(in Circle circle, int steps, in Color color, in int slot)
+		=> Circle(circle.Position, circle.Radius, steps, color, color, slot);
 
 	public void CircleLine(in Vector2 center, float radius, float thickness, int steps, in Color color, in int slot)
 	{
 		var innerRadius = radius - thickness;
 		if (innerRadius <= 0)
 		{
-			Circle(center, radius, steps, color);
+			Circle(center, radius, steps, color, slot);
 			return;
 		}
 
@@ -1456,7 +1462,7 @@ public class Batcher : IDisposable
 		if (percent < single_segment)
 		{
 			float scale = Calc.ClampedMap(percent, 0, single_segment, 0, 1);
-			Circle(Vector2.UnitX * (inner_radius + outer_radius) / 2, bar_radius * scale, 16, color);
+			Circle(Vector2.UnitX * (inner_radius + outer_radius) / 2, bar_radius * scale, 16, color, in slot);
 		}
 		else
 		{
@@ -1476,9 +1482,9 @@ public class Batcher : IDisposable
 				if (percent < 0.99f)
 				{
 					if (prev <= 0)
-						Circle((prev_inner + prev_outer) / 2, bar_radius, 16, color);
+						Circle((prev_inner + prev_outer) / 2, bar_radius, 16, color, in slot);
 					if (next >= percent)
-						Circle((next_inner + next_outer) / 2, bar_radius, 16, color);
+						Circle((next_inner + next_outer) / 2, bar_radius, 16, color, in slot);
 				}
 
 				Quad(slot, prev_inner, prev_outer, next_outer, next_inner, color);
