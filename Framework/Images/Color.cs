@@ -276,14 +276,15 @@ public struct Color : IEquatable<Color>
 	/// </summary>
 	public static Color Lerp(Color a, Color b, float amount)
 	{
-		amount = Math.Max(0, Math.Min(1, amount));
-
-		return new Color(
-			(byte)(a.R + (b.R - a.R) * amount),
-			(byte)(a.G + (b.G - a.G) * amount),
-			(byte)(a.B + (b.B - a.B) * amount),
-			(byte)(a.A + (b.A - a.A) * amount)
-		);
+		// SIMD-ify
+		Vector4 vecA = new Vector4(a.R, a.G, a.B, a.A);
+		Vector4 vecB = new Vector4(b.R, b.G, b.B, b.A);
+		Vector4 r = Vector4.Lerp(vecA, vecB, amount);
+		a.R = (byte)r.X;
+		a.G = (byte)r.Y;
+		a.B = (byte)r.Z;
+		a.A = (byte)r.W;
+		return a;
 	}
 
 	/// <summary>
@@ -302,12 +303,15 @@ public struct Color : IEquatable<Color>
 	/// </summary>
 	public static Color operator *(Color value, float scaler)
 	{
-		return new Color(
-			(byte)Math.Clamp(value.R * scaler, 0, 255),
-			(byte)Math.Clamp(value.G * scaler, 0, 255),
-			(byte)Math.Clamp(value.B * scaler, 0, 255),
-			(byte)Math.Clamp(value.A * scaler, 0, 255)
-		);
+		// SIMD-ify
+		Vector4 vec = new Vector4(value.R, value.G, value.B, value.A) * scaler;
+
+		value.R = (byte)vec.X;
+		value.G = (byte)vec.Y;
+		value.B = (byte)vec.Z;
+		value.A = (byte)vec.W;
+
+		return value;
 	}
 
 	public static bool operator ==(Color a, Color b) => a.RGBA == b.RGBA;
