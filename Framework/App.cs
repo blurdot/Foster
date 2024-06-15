@@ -264,9 +264,9 @@ public static class App
 	public static int MainThreadID { get; private set; }
 
 	/// <summary>
-	/// Locks Render rate to Update rate. Set this to false to run the Render loop as fast as possible.
+	/// Max framerate to allow
 	/// </summary>
-	public static bool RenderRateLimited = true;
+	public static TimeSpan MinSleepTime = TimeSpan.FromSeconds(1.0f / 144.0f);
 
 	public static int MSAASamples = 4;
 
@@ -411,31 +411,29 @@ public static class App
 			Time.Advance(delta);
 
 			Graphics.Resources.DeleteRequested();
-			Input.Step();
-			PollEvents();
 			FramePool.NextFrame();
 
 			for (int i = 0; i < modules.Count; i ++)
 				modules[i].Update();
+
+			Input.Step();
 		}
 
-		// Naive render rate cap
-		var renderCap = TimeSpan.FromSeconds(1.0f / 144.0f);
-		if (timer.Elapsed - lastTime < renderCap)
+		var deltaTime = Time.Now - lastTime;
+		var sleepTime = MinSleepTime - deltaTime;
+		while (sleepTime.TotalMilliseconds > 1)
 		{
-			TimeSpan sleepTime = (renderCap - (timer.Elapsed - lastTime));
-			while (sleepTime.Microseconds > 100f)
-			{
-				Thread.Sleep(sleepTime);
-				sleepTime = (renderCap - (timer.Elapsed - lastTime));
-			}
+			Thread.Sleep((int)sleepTime.TotalMilliseconds);
+			deltaTime = Time.Now - lastTime;
+			sleepTime = MinSleepTime - deltaTime;
 		}
+
+		deltaTime = Time.Now - lastTime;
+		lastTime = Time.Now;
+
+		PollEvents();
 
 		Platform.FosterBeginFrame();
-
-		var currentTime = timer.Elapsed;
-		var deltaTime = currentTime - lastTime;
-		lastTime = currentTime;
 
 		if (Time.FixedStep)
 		{
