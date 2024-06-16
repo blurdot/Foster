@@ -137,6 +137,7 @@ public class Batcher : IDisposable
 			FlipVerticalUV = (texture?.IsTargetAttachment ?? false) && Graphics.OriginBottomLeft;
 		}
 
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public bool TryGetTextureSlot(GCHandle texturePtr, out int slot)
 		{
 			for (int i = 0; i < NumTextures; i++)
@@ -332,6 +333,7 @@ public class Batcher : IDisposable
 
 	#region Modify State
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public bool TryGetTextureSlot(Texture texture, out int slot)
 	{
 		GCHandle handle = GCHandle.Alloc(texture);
@@ -343,6 +345,7 @@ public class Batcher : IDisposable
 	/// <summary>
 	/// Sets the Current Texture being drawn
 	/// </summary>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public unsafe int SetTexture(Texture? texture)
 	{
 		GCHandle handle = GCHandle.Alloc(texture);
@@ -423,6 +426,7 @@ public class Batcher : IDisposable
 		currentBatchInsert = insert;
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	private void SetMaterial(MaterialState materialState)
 	{
 		if (currentBatch.Elements == 0)
@@ -498,6 +502,7 @@ public class Batcher : IDisposable
 	/// <summary>
 	/// Pushes a Material to draw with
 	/// </summary>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void PushMaterial(Material material)
 	{
 		PushMaterial(material, 
@@ -511,6 +516,7 @@ public class Batcher : IDisposable
 	/// <summary>
 	/// Pushes a Material to draw with.
 	/// </summary>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void PushMaterial(Material material, string matrixUniform, string textureUniform, string samplerUniform, string globalColorsUniform)
 	{
 		materialStack.Push(currentBatch.MaterialState);
@@ -519,15 +525,24 @@ public class Batcher : IDisposable
 		{
 			return;
 		}
+
 		SetMaterial(new(material, matrixUniform, textureUniform, samplerUniform, globalColorsUniform));
 	}
 
 	/// <summary>
 	/// Pops the current Material
 	/// </summary>
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void PopMaterial()
 	{
-		SetMaterial(materialStack.Pop());
+		var materialState = materialStack.Pop();
+
+		if (materialState.Material == currentBatch.MaterialState.Material)
+		{
+			return;
+		}
+
+		SetMaterial(materialState);
 	}
 
 	/// <summary>
@@ -1517,7 +1532,7 @@ public class Batcher : IDisposable
 		Matrix = was;
 	}
 
-	public void ImageForge(Texture texture, Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Vector2 pivot, Color color, Color optColor0 = default, Color optColor1 = default)
+	public void ImageForge(int slot, Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Vector2 pivot, Color color, Color optColor0 = default, Color optColor1 = default)
 	{
 		var was = Matrix;
 
@@ -1532,8 +1547,6 @@ public class Batcher : IDisposable
 		Vector2 topLeft = new Vector2(0f, sizeInWorldUnits.Y) - pivotAdj;
 
 		Matrix = modelMatrix * Matrix;
-
-		int slot = SetTexture(texture);
 
 		Quad(
 			slot,
@@ -1557,13 +1570,11 @@ public class Batcher : IDisposable
 		Matrix = was;
 	}
 
-	public void ParticleForge(Texture texture, ref Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Color color)
+	public void ParticleForge(int slot, ref Matrix3x2 modelMatrix, Vector2 sizeInWorldUnits, Color color)
 	{
 		var was = Matrix;
 
 		Matrix = modelMatrix * Matrix;
-
-		int slot = SetTexture(texture);
 
 		Quad(
 			slot, 
