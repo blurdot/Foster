@@ -1,10 +1,11 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Foster.Framework;
 
 public static class Log
 {
-	public delegate void LogFn(ReadOnlySpan<char> text);
+	public delegate void LogFn(ReadOnlySpan<char> text, string filePath = "", int lineNumber = 0);
 
 	// TODO: this can potentially be written to from other threads
 	// The user shouldn't have access to this directly as they need to lock
@@ -16,12 +17,12 @@ public static class Log
 	public static LogFn? OnWarn;
 	public static LogFn? OnError;
 
-	public static void Info(ReadOnlySpan<char> message)
+	public static void Info(ReadOnlySpan<char> message, string filePath = "", int lineNumber = 0)
 	{
 		Append(message);
 		
 		if (OnInfo != null)
-			OnInfo(message);
+			OnInfo(message, filePath, lineNumber);
 		else
 			Console.Out.WriteLine(message);
 	}
@@ -50,18 +51,18 @@ public static class Log
 		Info(new ReadOnlySpan<byte>(ptr, len));
 	}
 
-	public static void Info(string message)
-		=> Info(message.AsSpan());
+	public static void Info(string message, [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
+		=> Info(message.AsSpan(), filePath, lineNumber);
 
 	public static void Info(object? obj)
 		=> Info(obj?.ToString() ?? "null");
 
-	public static void Warning(ReadOnlySpan<char> message)
+	public static void Warning(ReadOnlySpan<char> message, [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
 	{
 		Append(message);
 		
 		if (OnWarn != null)
-			OnWarn(message);
+			OnWarn(message, filePath, lineNumber);
 		else
 			Console.Out.WriteLine(message);
 	}
@@ -90,15 +91,15 @@ public static class Log
 		Warning(new ReadOnlySpan<byte>(ptr, len));
 	}
 
-	public static void Warning(string message)
-		=> Warning(message.AsSpan());
+	public static void Warning(string message, [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
+		=> Warning(message.AsSpan(), filePath, lineNumber);
 
-	public static void Error(ReadOnlySpan<char> message)
+	public static void Error(ReadOnlySpan<char> message, [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
 	{
 		Append(message);
 		
 		if (OnError != null)
-			OnError(message);
+			OnError(message, filePath, lineNumber);
 		else
 			Console.Out.WriteLine(message);
 	}
@@ -127,8 +128,8 @@ public static class Log
 		Error(new ReadOnlySpan<byte>(ptr, len));
 	}
 
-	public static void Error(string message)
-		=> Error(message.AsSpan());
+	public static void Error(string message, [CallerFilePath] string filePath = "", [CallerLineNumber] int lineNumber = 0)
+		=> Error(message.AsSpan(), filePath, lineNumber);
 
 	public static void Append(ReadOnlySpan<char> message)
 	{
