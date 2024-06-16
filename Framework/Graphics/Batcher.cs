@@ -159,15 +159,15 @@ public class Batcher : IDisposable
 	public Batcher(Shader defaultShader)
 	{
 		DefaultShader = defaultShader;
-
 		Material material = new Material(DefaultShader);
-
 		defaultMaterialState = new(material, "u_matrix", "u_textures", "u_textures_sampler", "u_global_colors");
+		Clear();
+	}
 
-		// TODO: globalColors should be static somewhere...
-		Span<Color> globalColors = [new Color(0.7f, 0.1f, 0.1f, 0f), new Color(0f, 1f, 0f, 0f)];
-		material.Set(defaultMaterialState.GlobalColorsUniform, globalColors);
-
+	public Batcher(Material defaultMaterial)
+	{
+		DefaultShader = defaultMaterial.Shader;
+		defaultMaterialState = new(defaultMaterial, "u_matrix", "u_textures", "u_textures_sampler", "u_global_colors");
 		Clear();
 	}
 
@@ -177,13 +177,7 @@ public class Batcher : IDisposable
 			DefaultShader = new Shader(ShaderDefaults.Batcher[Graphics.Renderer]);
 
 		Material material = new Material(DefaultShader);
-
 		defaultMaterialState = new(material, "u_matrix", "u_textures", "u_textures_sampler", "u_global_colors");
-
-		// TODO: globalColors should be static somewhere...
-		Span<Color> globalColors = [Color.Red, Color.Blue];
-		material.Set(defaultMaterialState.GlobalColorsUniform, globalColors);
-
 		Clear();
 	}
 
@@ -358,8 +352,6 @@ public class Batcher : IDisposable
 	/// </summary>
 	public unsafe int SetTexture(Texture? texture)
 	{
-		// TODO: Add/bind new textures until we run out of texture slots, only then should we create a new batch...
-
 		GCHandle handle = GCHandle.Alloc(texture);
 
 		if (currentBatch.TryGetTextureSlot(handle, out int slot))
@@ -406,6 +398,7 @@ public class Batcher : IDisposable
 			currentBatch.Sampler = sampler;
 			currentBatch.Offset += currentBatch.Elements;
 			currentBatch.Elements = 0;
+			currentBatch.NumTextures = 0;
 			currentBatchInsert++;
 		}
 	}
@@ -425,6 +418,7 @@ public class Batcher : IDisposable
 			batches.Insert(currentBatchInsert, currentBatch);
 			currentBatch.Offset += currentBatch.Elements;
 			currentBatch.Elements = 0;
+			currentBatch.NumTextures = 0;
 		}
 
 		// find the point to insert us
@@ -449,6 +443,7 @@ public class Batcher : IDisposable
 			currentBatch.MaterialState = materialState;
 			currentBatch.Offset += currentBatch.Elements;
 			currentBatch.Elements = 0;
+			currentBatch.NumTextures = 0;
 			currentBatchInsert++;
 		}
 	}
@@ -466,6 +461,7 @@ public class Batcher : IDisposable
 			currentBatch.Blend = blend;
 			currentBatch.Offset += currentBatch.Elements;
 			currentBatch.Elements = 0;
+			currentBatch.NumTextures = 0;
 			currentBatchInsert++;
 		}
 	}
@@ -483,6 +479,7 @@ public class Batcher : IDisposable
 			currentBatch.Scissor = scissor;
 			currentBatch.Offset += currentBatch.Elements;
 			currentBatch.Elements = 0;
+			currentBatch.NumTextures = 0;
 			currentBatchInsert++;
 		}
 	}
@@ -528,6 +525,11 @@ public class Batcher : IDisposable
 	public void PushMaterial(Material material, string matrixUniform, string textureUniform, string samplerUniform, string globalColorsUniform)
 	{
 		materialStack.Push(currentBatch.MaterialState);
+
+		if (material == currentBatch.MaterialState.Material)
+		{
+			return;
+		}
 
 		// get a pooled material, or create a new one
 		Material? copy;
