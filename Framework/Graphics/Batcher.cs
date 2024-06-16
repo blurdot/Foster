@@ -90,9 +90,6 @@ public class Batcher : IDisposable
 	private Color mode = new(255, 0, 0, 0);
 	private bool dirty;
 
-	private readonly List<Material> materialPool = new();
-	private int materialPoolIndex;
-
 	private IntPtr vertexPtr = IntPtr.Zero;
 	private int vertexCount = 0;
 	private int vertexCapacity = 0;
@@ -201,9 +198,6 @@ public class Batcher : IDisposable
 			indexPtr = IntPtr.Zero;
 			indexCapacity = 0;
 		}
-
-		materialPool.Clear();
-		materialPoolIndex = 0;
 	}
 
 	/// <summary>
@@ -214,7 +208,6 @@ public class Batcher : IDisposable
 		vertexCount = 0;
 		indexCount = 0;
 		currentBatchInsert = 0;
-		materialPoolIndex = 0;
 		currentBatch = new Batch(defaultMaterialState, BlendMode.Premultiply, null, new(), 0, 0);
 		mode = new Color(255, 0, 0, 0);
 		batches.Clear();
@@ -504,8 +497,6 @@ public class Batcher : IDisposable
 
 	/// <summary>
 	/// Pushes a Material to draw with
-	/// This clones the state of the Material, so changing it after pushing it
-	/// will not have an effect on the resulting draw.
 	/// </summary>
 	public void PushMaterial(Material material)
 	{
@@ -519,8 +510,6 @@ public class Batcher : IDisposable
 
 	/// <summary>
 	/// Pushes a Material to draw with.
-	/// This clones the state of the Material, so changing it after pushing it
-	/// will not have an effect on the resulting draw.
 	/// </summary>
 	public void PushMaterial(Material material, string matrixUniform, string textureUniform, string samplerUniform, string globalColorsUniform)
 	{
@@ -530,18 +519,7 @@ public class Batcher : IDisposable
 		{
 			return;
 		}
-
-		// get a pooled material, or create a new one
-		Material? copy;
-		if (materialPoolIndex < materialPool.Count)
-			copy = materialPool[materialPoolIndex];
-		else
-			materialPool.Add(copy = new Material());
-		materialPoolIndex++;
-
-		// copy the values to our internal material & set it
-		material.CopyTo(copy);
-		SetMaterial(new(copy, matrixUniform, textureUniform, samplerUniform, globalColorsUniform));
+		SetMaterial(new(material, matrixUniform, textureUniform, samplerUniform, globalColorsUniform));
 	}
 
 	/// <summary>
