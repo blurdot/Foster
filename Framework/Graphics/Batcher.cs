@@ -856,6 +856,7 @@ public class Batcher : IDisposable
 		vertexCount += 4;
 	}
 
+	[MethodImpl(MethodImplOptions.AggressiveInlining)]
 	public void Quad(in int slot, in Vector2 v0, in Vector2 v1, in Vector2 v2, in Vector2 v3, in Vector2 t0, in Vector2 t1, in Vector2 t2, in Vector2 t3, Color c0, Color c1, Color c2, Color c3)
 	{
 		PushQuad();
