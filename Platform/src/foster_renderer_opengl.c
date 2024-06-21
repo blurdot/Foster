@@ -782,13 +782,12 @@ void FosterSetTextureSampler(FosterTexture_OpenGL* tex, FosterTextureSampler sam
 		{
 			fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, FosterFilterToGL(sampler.filter));
 			fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 8);
 
 			if (sampler.filter > 1)
 			{
 				fgl.glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, -0.5); // TODO: This helps mipmaps not look so blurry?
 				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
-				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 1000);
+				fgl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 1);
 				fgl.glGenerateMipmap(GL_TEXTURE_2D);
 			}
 		}
