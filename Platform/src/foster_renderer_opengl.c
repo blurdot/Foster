@@ -189,6 +189,7 @@ typedef char             GLchar;
 #define GL_QUERY_RESULT_AVAILABLE 0x8867
 #define GL_SAMPLES_PASSED 0x8914
 #define GL_MULTISAMPLE 0x809D
+#define GL_SAMPLES 0x80A9
 #define GL_MAX_SAMPLES 0x8D57
 #define GL_SAMPLE_MASK 0x8E51
 #define GL_FRAGMENT_SHADER 0x8B30
@@ -1007,7 +1008,7 @@ void FosterPrepare_OpenGL()
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
-		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);			
 
 		// TODO:
 		// This should be controlled via the gfx api somehow?
@@ -1015,7 +1016,6 @@ void FosterPrepare_OpenGL()
 		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, state->desc.msaaSamples);
-		FOSTER_LOG_INFO("OpenGL MSAA Samples: %i", state->desc.msaaSamples);
 	#endif
 }
 
@@ -1088,8 +1088,11 @@ bool FosterInitialize_OpenGL()
 	for (int i = 0; i < FOSTER_MAX_UNIFORM_TEXTURES; i++)
 		fgl.stateTextureSlots[i] = 0;
 
+	int samples;
+	fgl.glGetIntegerv(GL_SAMPLES, &samples);
+
 	// log
-	FOSTER_LOG_INFO("OpenGL: v%s, %s", fgl.glGetString(GL_VERSION), fgl.glGetString(GL_RENDERER));
+	FOSTER_LOG_INFO("OpenGL: v%s, %s, msaaSamples: %i", fgl.glGetString(GL_VERSION), fgl.glGetString(GL_RENDERER), samples);
 	return true;
 }
 

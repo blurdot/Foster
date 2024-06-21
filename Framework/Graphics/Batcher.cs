@@ -1500,7 +1500,6 @@ public class Batcher : IDisposable
 	{
 		var was = Matrix;
 
-		//Matrix *= inverseCameraMatrix;
 		Vector2 cameraOffset = new Vector2(inverseCameraMatrix.Translation.X, inverseCameraMatrix.Translation.Y);
 
 		Vector2 bottomLeft = new Vector2(-App.WidthInPixels * 0.5f * aspectScale, App.HeightInPixels * 0.5f * aspectScale) + cameraOffset;
