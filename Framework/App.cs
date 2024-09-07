@@ -263,11 +263,6 @@ public static class App
 	/// </summary>
 	public static int MainThreadID { get; private set; }
 
-	/// <summary>
-	/// Max framerate to allow
-	/// </summary>
-	public static TimeSpan MinSleepTime = TimeSpan.FromSeconds(1.0f / 144.0f);
-
 	public static int MSAASamples = 4;
 
 	/// <summary>
@@ -410,34 +405,65 @@ public static class App
 			Time.Frame++;
 			Time.Advance(delta);
 
-			Graphics.Resources.DeleteRequested();
+			Input.Step();
+			PollEvents();
 			FramePool.NextFrame();
 
-			for (int i = 0; i < modules.Count; i ++)
+			for (int i = 0; i < modules.Count; i++)
 				modules[i].Update();
-
-			Input.Step();
 		}
 
-		var deltaTime = Time.Now - lastTime;
-		var sleepTime = MinSleepTime - deltaTime;
-		while (sleepTime.TotalMilliseconds > 1)
+		static void Render(TimeSpan delta)
 		{
-			Thread.Sleep((int)sleepTime.TotalMilliseconds);
-			deltaTime = Time.Now - lastTime;
-			sleepTime = MinSleepTime - deltaTime;
+			Time.RenderFrame++;
+			Time.AdvanceRender(delta);
+
+			PollEvents();
+
+			Graphics.Resources.DeleteRequested();
+
+			for (int i = 0; i < modules.Count; i++)
+				modules[i].Render();
 		}
 
-		deltaTime = Time.Now - lastTime;
-		lastTime = Time.Now;
 
-		PollEvents();
+		// Try to hit RenderRateTarget if one was specified.
+		if (Time.RenderRateTarget > TimeSpan.Zero)
+		{
+			var delta = timer.Elapsed - lastTime;
+			var sleepTime = Time.RenderRateTarget - delta;
+			while (sleepTime.TotalMilliseconds > 1)
+			{
+				Thread.Sleep((int)sleepTime.TotalMilliseconds);
+				delta = timer.Elapsed - lastTime;
+				sleepTime = Time.RenderRateTarget - delta;
+			}
+		}
 
 		Platform.FosterBeginFrame();
+		var currentTime = timer.Elapsed;
+		var deltaTime = currentTime - lastTime;
 
 		if (Time.FixedStep)
 		{
 			accumulator += deltaTime;
+
+			// Wait for next FixedUpdate before allowing render
+			if (Time.RenderRateTarget == Time.Rates.RenderLocked)
+			{
+				var last = currentTime;
+				while (accumulator < Time.FixedStepTarget)
+				{
+					Thread.Sleep((int)(Time.FixedStepTarget - accumulator).TotalMilliseconds);
+					var current = timer.Elapsed;
+					var delta = current - last;
+					last = current;
+					accumulator += delta;
+				}
+
+				currentTime = timer.Elapsed;
+				deltaTime = currentTime - lastTime;
+			}
 
 			// Do not allow any update to take longer than our maximum.
 			if (accumulator > Time.FixedStepMaxElapsedTime)
@@ -460,11 +486,9 @@ public static class App
 			Update(deltaTime);
 		}
 
-		Time.RenderFrame++;
-		Time.AdvanceRender(deltaTime);
+		Render(deltaTime);
 
-		for (int i = 0; i < modules.Count; i ++)
-			modules[i].Render();
+		lastTime = currentTime;
 
 		Platform.FosterEndFrame();
 	}
